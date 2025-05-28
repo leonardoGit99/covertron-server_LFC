@@ -9,7 +9,7 @@ import categoriesRoutes from './routes/categoriesRoutes';
 
 const app = express();
 const allowedOrigins = [
-  'http://localhost:5173',
+  'http://localhost:3000',
   'https://pern-stack-by-lfc.vercel.app',
 ];
 
@@ -28,7 +28,7 @@ app.use(morgan('dev'));
 
 app.use(express.json());
 
-app.use(categoriesRoutes);
+app.use('/api',categoriesRoutes);
 
 const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
   res.status(500).json({ message: err.message });
