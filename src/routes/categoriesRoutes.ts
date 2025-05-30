@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { createCategorie, deleteCategorie, getAllCategories, getOneCategorie, updateCategorie } from '../controllers/categories.controller';
+import { createCategorie, deleteCategorie, getAllCategories, getOneCategorie, updateCategorie } from '../controllers/categoriesController';
 
 const router = Router();
-console.log(typeof deleteCategorie)
+
 router.get('/categories', getAllCategories);
 router.get('/categories/:id', getOneCategorie);
 router.post('/categories', createCategorie);

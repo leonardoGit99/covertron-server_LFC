@@ -21,20 +21,29 @@ export const createCategorie = async (
 };
 
 
-export const getAllCategories = async (
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => {
+export const getAllCategories = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const allCategories = await pool.query('SELECT * FROM categories ORDER BY name ASC');
-    res.json(allCategories.rows);
+    console.log(allCategories)
+
+    if (allCategories.rows.length === 0) {
+      res.status(200).json({
+        message: 'No categories found',
+        data: []
+      });
+      return;
+    }
+
+    res.status(200).json({
+      message: `Total categories: ${allCategories.rows.length}`,
+      data: allCategories.rows
+    });
   } catch (error) {
     next(error);
   }
 };
 
-export const getOneCategorie = async (req: Request, res: Response, next: NextFunction) => {
+export const getOneCategorie = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { id } = req.params;
   try {
     const categorie = await pool.query('SELECT name, description FROM categories WHERE id=$1', [id])
