@@ -16,6 +16,13 @@ create table categories (
   description text
 );
 
+create table subcategories (
+  id bigint primary key generated always as identity,
+  category_id bigint references categories (id) on delete cascade,
+  name text not null,
+  description text
+);
+
 create table product_images (
   id bigint primary key generated always as identity,
   product_id bigint references products (id) on delete cascade,

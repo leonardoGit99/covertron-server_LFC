@@ -26,6 +26,29 @@ export const createSubCategory = async (
 
 export const getAllSubCategories = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    // Query ?categoryId=x getSubcategoriesByCategory
+    const { categoryId } = req.query;
+    console.log(categoryId);
+
+    if (categoryId) {
+      const id = parseInt(categoryId as string, 10);
+      if (isNaN(id)) {
+        res.status(200).json({
+          message: 'Invalid categoryId',
+          data: []
+        });
+        return;
+      }
+
+      const result = await pool.query('SELECT * FROM subcategories WHERE category_id = $1', [id]);
+      res.status(200).json({
+        message: `Total sub-categories: ${result.rows.length}`,
+        data: result.rows
+      });
+      return;
+    }
+
+    // Get All categories
     const result = await pool.query('SELECT * FROM subcategories ORDER BY name ASC');
     console.log(result)
 
@@ -61,6 +84,7 @@ export const getOneSubCategory = async (req: Request, res: Response, next: NextF
 }
 
 
+
 export const updateSubCategory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const client = await pool.connect();
 
@@ -72,7 +96,7 @@ export const updateSubCategory = async (req: Request, res: Response, next: NextF
     await client.query('BEGIN');
 
     // Update sub-category
-    const result = await client.query('UPDATE subcategories SET name=$1, description=$2, category_id=$3 WHERE id=$4 RETURNING *', [name, description,category_id, id]);
+    const result = await client.query('UPDATE subcategories SET name=$1, description=$2, category_id=$3 WHERE id=$4 RETURNING *', [name, description, category_id, id]);
 
     // There aren't subcategories
     if (result.rowCount === 0) {
