@@ -2,18 +2,18 @@ import { Request, Response, NextFunction } from 'express';
 import pool from '../db';
 
 
-export const createCategorie = async (
+export const createCategory = async (
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
   const { name, description } = req.body;
   try {
-    const categorie = await pool.query('INSERT INTO categories (name, description) VALUES ($1, $2) RETURNING *', [name, description]);
+    const result = await pool.query('INSERT INTO categories (name, description) VALUES ($1, $2) RETURNING *', [name, description]);
 
     res.status(201).json({
-      message: 'Categorie created successfully',
-      categorie: categorie.rows[0]
+      message: 'Category created successfully',
+      data: result.rows[0]
     })
   } catch (error) {
     next(error);
@@ -23,10 +23,10 @@ export const createCategorie = async (
 
 export const getAllCategories = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const allCategories = await pool.query('SELECT * FROM categories ORDER BY name ASC');
-    console.log(allCategories)
+    const result = await pool.query('SELECT * FROM categories ORDER BY name ASC');
+    console.log(result)
 
-    if (allCategories.rows.length === 0) {
+    if (result.rows.length === 0) {
       res.status(200).json({
         message: 'No categories found',
         data: []
@@ -35,26 +35,29 @@ export const getAllCategories = async (req: Request, res: Response, next: NextFu
     }
 
     res.status(200).json({
-      message: `Total categories: ${allCategories.rows.length}`,
-      data: allCategories.rows
+      message: `Total categories: ${result.rows.length}`,
+      data: result.rows
     });
   } catch (error) {
     next(error);
   }
 };
 
-export const getOneCategorie = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const getOneCategory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { id } = req.params;
   try {
-    const categorie = await pool.query('SELECT name, description FROM categories WHERE id=$1', [id])
-    res.json(categorie.rows[0]);
+    const result = await pool.query('SELECT * FROM categories WHERE id=$1', [id])
+    res.status(200).json({
+      message: 'Category found successfully',
+      data: result.rows[0]
+    });
   } catch (error) {
     next(error);
   }
 }
 
 
-export const updateCategorie = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const updateCategory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const client = await pool.connect();
 
   try {
@@ -70,7 +73,10 @@ export const updateCategorie = async (req: Request, res: Response, next: NextFun
     // There's no category
     if (result.rowCount === 0) {
       await client.query('ROLLBACK');
-      res.status(404).json({ message: 'Category not found' });
+      res.status(200).json({
+        message: 'Category not found',
+        data: {}
+      });
       return;
     }
 
@@ -89,15 +95,21 @@ export const updateCategorie = async (req: Request, res: Response, next: NextFun
   }
 }
 
-export const deleteCategorie = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const deleteCategory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = parseInt(req.params.id, 10);
     const result = await pool.query('DELETE FROM categories WHERE id=$1 RETURNING *', [id]);
     if (result.rowCount === 0) {
-      res.status(404).json({ message: "Categorie not found" });
+      res.status(200).json({
+        message: "Categorie not found",
+        data: {}
+      });
       return;
     }
-    res.status(204).json({ message: "Categorie deleted" });
+    res.status(200).json({
+      message: "Categorie deleted",
+      data: {}
+    });
   } catch (error) {
     next(error);
   }
