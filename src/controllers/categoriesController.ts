@@ -1,19 +1,33 @@
 import { Request, Response, NextFunction } from 'express';
-import pool from '../db';
-
+import pool from '../utils/db';
+import { categorySchema } from '../schemas/category.schema';
+import { deleteCategoryById, insertCategory, selectAllCategories, selectCategoryById, updateCategoryById } from '../services/category.service';
+import { z } from 'zod';
+import { parseIdParam } from '../utils/categoryHelper';
 
 export const createCategory = async (
   req: Request,
   res: Response,
   next: NextFunction
-) => {
-  const { name, description } = req.body;
+): Promise<void> => {
   try {
-    const result = await pool.query('INSERT INTO categories (name, description) VALUES ($1, $2) RETURNING *', [name, description]);
+    // Body Validation
+    const { success, data, error } = categorySchema.safeParse(req.body);
+    if (!success) {
+      res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: error ? z.treeifyError(error) : {}
+      })
+      return;
+    }
+
+    const result = await insertCategory(data);
 
     res.status(201).json({
+      success: true,
       message: 'Category created successfully',
-      data: result.rows[0]
+      data: result
     })
   } catch (error) {
     next(error);
@@ -23,20 +37,15 @@ export const createCategory = async (
 
 export const getAllCategories = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const result = await pool.query('SELECT * FROM categories ORDER BY name ASC');
-    console.log(result)
-
-    if (result.rows.length === 0) {
-      res.status(200).json({
-        message: 'No categories found',
-        data: []
-      });
-      return;
-    }
+    const result = await selectAllCategories();
 
     res.status(200).json({
-      message: `Total categories: ${result.rows.length}`,
-      data: result.rows
+      success: true,
+      message: result.length === 0 ? 'No categories found' : 'Categories retrieved successfully',
+      data: {
+        total: result.length,
+        categories: result
+      }
     });
   } catch (error) {
     next(error);
@@ -44,12 +53,24 @@ export const getAllCategories = async (req: Request, res: Response, next: NextFu
 };
 
 export const getOneCategory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  const { id } = req.params;
   try {
-    const result = await pool.query('SELECT * FROM categories WHERE id=$1', [id])
+    const id = parseIdParam(req, res);
+    if (id === null) return;
+
+    const result = await selectCategoryById(id);
+
+    if (!result) {
+      res.status(404).json({
+        success: false,
+        message: 'No categories found'
+      });
+      return;
+    }
+
     res.status(200).json({
-      message: 'Category found successfully',
-      data: result.rows[0]
+      success: true,
+      message: 'Category found',
+      data: result
     });
   } catch (error) {
     next(error);
@@ -57,63 +78,113 @@ export const getOneCategory = async (req: Request, res: Response, next: NextFunc
 }
 
 
-export const updateCategory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const updateCategory = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   const client = await pool.connect();
 
   try {
-    const { id } = req.params;
-    const { name, description } = req.body;
 
-    //Begin transaction
-    await client.query('BEGIN');
+    // Id validation
+    const id = parseIdParam(req, res);
+    if (id === null) return;
 
-    // Update categorie
-    const result = await client.query('UPDATE categories SET name=$1, description=$2 WHERE id=$3 RETURNING *', [name, description, id]);
+    // Body Validation
+    const { success, data, error } = categorySchema.safeParse(req.body);
 
-    // There's no category
-    if (result.rowCount === 0) {
-      await client.query('ROLLBACK');
-      res.status(200).json({
-        message: 'Category not found',
-        data: {}
+    if (!success) {
+      res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: z.treeifyError(error)
       });
       return;
     }
 
-    // Commit in case all works good
+    // Getting Category store in db (previous category)
+    const prevCategory = await selectCategoryById(id);
+
+    if (!prevCategory) {
+      res.status(404).json({
+        success: false,
+        message: 'Category not found'
+      });
+      return;
+    }
+    // Validating if it doesn't have changes
+    if (prevCategory.name === data.name && prevCategory.description === data.description) {
+      res.status(200).json({
+        success: true,
+        message: 'No changes detected',
+        data: prevCategory
+      });
+      return;
+    }
+
+    // Begin transaction
+    await client.query('BEGIN');
+
+    // Call to update service in db
+    const result = await updateCategoryById(id, data, client);
+
+    // If there is not the category during update, rollback
+    if (!result) {
+      await client.query('ROLLBACK');
+      res.status(404).json({
+        success: false,
+        message: 'Category not found during update'
+      });
+      return;
+    }
+
+    // Commit changes
     await client.query('COMMIT');
+
+    // Response
     res.status(200).json({
-      message: "Categorie updated successufully",
-      category: result.rows[0]
+      success: true,
+      message: 'Category updated successfully',
+      data: result
     });
   } catch (error) {
-    // Rollback in case something wrong happend
-    await client.query("ROLLBACK");
+    // If there's an error, rollback
+    await client.query('ROLLBACK');
     next(error);
   } finally {
     client.release(); // Leave connection
   }
-}
+};
 
-export const deleteCategory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const deleteCategory = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
   try {
-    const id = parseInt(req.params.id, 10);
-    const result = await pool.query('DELETE FROM categories WHERE id=$1 RETURNING *', [id]);
-    if (result.rowCount === 0) {
-      res.status(200).json({
-        message: "Categorie not found",
-        data: {}
+    const id = parseIdParam(req, res);
+    if (id === null) return;
+
+    const result = await deleteCategoryById(id);
+
+    if (!result) {
+      res.status(404).json({
+        success: false,
+        message: 'Category not found'
       });
       return;
     }
+
     res.status(200).json({
-      message: "Categorie deleted",
-      data: {}
+      success: true,
+      message: 'Category deleted successfully',
+      data: { id: result.id }
     });
   } catch (error) {
     next(error);
   }
-}
+};
 
 
 
