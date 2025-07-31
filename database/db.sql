@@ -22,6 +22,11 @@ create table subcategories (
   name text not null,
   description text
 );
+create table product_categories (
+  product_id bigint references products (id) on delete cascade,
+  category_id bigint references categories (id) on delete cascade,
+  primary key (product_id, category_id)
+);
 
 create table product_images (
   id bigint primary key generated always as identity,
@@ -46,11 +51,6 @@ create table order_items (
   price numeric(10, 2) not null
 );
 
-create table product_categories (
-  product_id bigint references products (id) on delete cascade,
-  category_id bigint references categories (id) on delete cascade,
-  primary key (product_id, category_id)
-);
 
 alter table products
 alter column description

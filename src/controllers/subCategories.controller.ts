@@ -204,7 +204,7 @@ export const deleteSubCategory = async (req: Request, res: Response, next: NextF
 
     if (result === 0) {
       res.status(404).json({
-        succes: false,
+        success: false,
         message: "Sub-category not found"
       });
       return;

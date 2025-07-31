@@ -5,7 +5,7 @@ export const parseIdParam = (req: Request, res: Response): number | null => {
   if (isNaN(id)) {
     res.status(400).json({
       success: false,
-      message: 'Invalid category ID'
+      message: 'Invalid ID'
     });
     return null;
   }
