@@ -149,7 +149,7 @@ export const updateSubCategory = async (req: Request, res: Response, next: NextF
       return;
     }
 
-    if (prevSubCategory.name === data.name && prevSubCategory.description === data.description) {
+    if (prevSubCategory.name === data.name && prevSubCategory.description === data.description && prevSubCategory.categoryId === data.categoryId) {
       res.status(200).json({
         success: true,
         message: 'No changes detected',
