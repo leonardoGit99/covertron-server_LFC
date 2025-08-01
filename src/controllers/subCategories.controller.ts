@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import pool from '../utils/db';
 import { subCategorySchema } from '../schemas/subCategory.schema';
-import z, { success } from 'zod';
+import z from 'zod';
 import { deleteSubCategoryById, fetchAllSubCategories, getAllSubCategoriesByCategory, getOneSubCategoryById, insertSubCategory, updateSubCategoryById } from '../services/subCategory.service';
 import { parseIdParam } from '../utils/categoryHelper';
 
