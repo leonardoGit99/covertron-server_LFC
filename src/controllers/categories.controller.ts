@@ -3,7 +3,7 @@ import pool from '../utils/db';
 import { categorySchema } from '../schemas/category.schema';
 import { deleteCategoryById, insertCategory, selectAllCategories, selectCategoryById, updateCategoryById } from '../services/category.service';
 import { z } from 'zod';
-import { parseIdParam } from '../utils/categoryHelper';
+import { parseIdParam } from '../utils/parseIdParam';
 
 export const createCategory = async (
   req: Request,

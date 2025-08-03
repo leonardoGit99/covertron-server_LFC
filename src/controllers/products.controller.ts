@@ -1,10 +1,11 @@
 import { Request, Response, NextFunction } from "express"
 import { productSchema } from "../schemas/product.schema"
 import z, { success } from "zod";
-import { fetchAllProducts, insertProduct } from "../services/product.service";
+import { fetchAllProducts, fetchOneProductById, insertProduct } from "../services/product.service";
 import { saveImageToCloudinary } from "../utils/cloudinary";
 import { insertProductImages } from "../services/image.service";
 import pool from "../utils/db";
+import { parseIdParam } from "../utils/parseIdParam";
 export const createProduct = async (
   req: Request,
   res: Response,
@@ -34,6 +35,7 @@ export const createProduct = async (
         success: false,
         message: 'Creation of product failed'
       })
+      return;
     }
 
 
@@ -117,7 +119,7 @@ export const getAllProducts = async (
 ): Promise<void> => {
   try {
     const products = await fetchAllProducts();
-    
+
     const normalizedProducts = products.map(product => ({
       ...product,
       images: product.images ?? []  // reemplaza null por []
@@ -135,5 +137,40 @@ export const getAllProducts = async (
   } catch (error) {
     next(error);
   }
-
 }
+
+export const getOneProduct = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const productId = parseIdParam(req, res);
+    if (productId === null) return;
+
+    const product = await fetchOneProductById(productId);
+
+    const normalizedProduct = {
+      ...product,
+      images: product.images ?? []  // reemplaza null por []
+    };
+    if (!product) {
+      res.status(500).json({
+        success: false,
+        message: 'Creation of product failed'
+      })
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Product found',
+      data: normalizedProduct
+    });
+
+  } catch (error) {
+    next(error);
+  }
+}
+
+

@@ -38,3 +38,30 @@ export const fetchAllProducts = async (): Promise<Products> => {
 
   return result.rows;
 }
+
+
+export const fetchOneProductById = async (productId: number): Promise<Product> => {
+  const result = await pool.query(`
+    SELECT 
+      p.id,
+      p.name, 
+      p.description, 
+      p.discount, 
+      p.brand,
+      p.subcategory_id AS "subCategoryId",
+      c.id AS "categoryId",
+      p.state,
+      p.price,
+      ARRAY_AGG(i.image_url) FILTER (WHERE i.image_url IS NOT NULL) AS "images"
+    FROM products p
+    LEFT JOIN product_images i ON p.id = i.product_id
+    JOIN subcategories s ON s.id = p.subcategory_id
+    JOIN categories c ON c.id = s.category_id
+    WHERE p.id = $1
+    GROUP BY 
+        p.id, p.name, p.description, p.discount, p.brand,
+        p.subcategory_id, p.state, p.price, c.id
+    `, [productId])
+
+  return result.rows[0];
+}

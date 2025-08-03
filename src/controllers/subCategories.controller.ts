@@ -3,7 +3,7 @@ import pool from '../utils/db';
 import { subCategorySchema } from '../schemas/subCategory.schema';
 import z from 'zod';
 import { deleteSubCategoryById, fetchAllSubCategories, getAllSubCategoriesByCategory, getOneSubCategoryById, insertSubCategory, updateSubCategoryById } from '../services/subCategory.service';
-import { parseIdParam } from '../utils/categoryHelper';
+import { parseIdParam } from '../utils/parseIdParam';
 
 
 export const createSubCategory = async (
@@ -14,7 +14,7 @@ export const createSubCategory = async (
   try {
     const categoryId = parseIdParam(req, res);
     if (categoryId === null) return;
-
+    console.log(req.body)
     const { success, data, error } = subCategorySchema.safeParse(req.body);
     if (!success) {
       res.status(400).json({
