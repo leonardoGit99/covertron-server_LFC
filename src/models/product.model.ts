@@ -6,6 +6,8 @@ export type NewProduct = z.infer<typeof productSchema>
 export type Product = NewProduct & {
   id: number,
   categoryId: number,
+  categoryName: string,
+  subCategoryName: string,
   state: string,
   images: string[]
 }
