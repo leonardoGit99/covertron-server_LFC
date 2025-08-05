@@ -1,5 +1,5 @@
 import stream from 'stream';
-import { UploadApiResponse } from 'cloudinary';
+import { UploadApiResponse, UploadApiErrorResponse } from 'cloudinary';
 import { cloudinary } from './index';
 
 // Tipado básico para el archivo que viene desde multer
@@ -10,10 +10,35 @@ interface MulterFile {
   size: number;
 }
 
-export async function saveImageToCloudinary(
+
+const extractPublicId = (publicUrl: string): string => {
+  const url = new URL(publicUrl);
+  const parts = url.pathname.split('/');
+
+  const uploadIndex = parts.indexOf('upload');
+  if (uploadIndex === -1) {
+    throw new Error('Invalid Cloudinary URL: missing "upload" segment.');
+  }
+
+  // Captura el path después de "upload", eliminando la versión
+  const relevantParts = parts.slice(uploadIndex + 1);
+  
+  // Si el primer elemento es versión (ej: v12345678), lo quitamos
+  if (/^v\d+$/.test(relevantParts[0])) {
+    relevantParts.shift();
+  }
+
+  // Reconstruimos el publicId y quitamos la extensión
+  const fullPath = relevantParts.join('/');
+  const withoutExtension = fullPath.replace(/\.[^/.]+$/, '');
+
+  return withoutExtension;
+};
+
+export const saveImageToCloudinary = (
   file: MulterFile,
   productId: number | string
-): Promise<string> {
+): Promise<string> => {
   try {
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
@@ -37,6 +62,24 @@ export async function saveImageToCloudinary(
     });
   } catch (error) {
     console.error('Error uploading to Cloudinary:', error);
+    throw error;
+  }
+}
+
+export async function deleteImageFromCloudinary(publicUrl: string) {
+  try {
+    const publicId = extractPublicId(publicUrl);
+    return new Promise((resolve, reject) => {
+      cloudinary.uploader.destroy(publicId, (error:any , result:any) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+      });
+    });
+  } catch (error) {
+    console.error("Error deleting from Cloudinary", error);
     throw error;
   }
 }

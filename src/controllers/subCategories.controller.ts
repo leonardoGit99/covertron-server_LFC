@@ -14,7 +14,6 @@ export const createSubCategory = async (
   try {
     const categoryId = parseIdParam(req, res);
     if (categoryId === null) return;
-    console.log(req.body)
     const { success, data, error } = subCategorySchema.safeParse(req.body);
     if (!success) {
       res.status(400).json({
@@ -117,6 +116,7 @@ export const updateSubCategory = async (req: Request, res: Response, next: NextF
   const client = await pool.connect();
 
   try {
+    console.log(req.body)
     // Id SubCategory validation
     const { categoryId, subCategoryId } = req.params;
     if (isNaN(Number(categoryId)) || isNaN(Number(subCategoryId))) {
@@ -129,6 +129,7 @@ export const updateSubCategory = async (req: Request, res: Response, next: NextF
 
     // Body validation
     const { success, data, error } = subCategorySchema.safeParse(req.body);
+
 
     if (!success) {
       res.status(400).json({
@@ -148,8 +149,12 @@ export const updateSubCategory = async (req: Request, res: Response, next: NextF
       })
       return;
     }
+    
 
-    if (prevSubCategory.name === data.name && prevSubCategory.description === data.description && prevSubCategory.categoryId === data.categoryId) {
+
+    if (prevSubCategory.name === data.name &&
+      prevSubCategory.description === data.description &&
+      Number(prevSubCategory.categoryId) === Number(data.categoryId)) {
       res.status(200).json({
         success: true,
         message: 'No changes detected',

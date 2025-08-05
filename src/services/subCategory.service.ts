@@ -54,7 +54,11 @@ export const updateSubCategoryById = async (categoryId: number, subCategoryId: n
     UPDATE subcategories 
     SET name=$1, description=$2, category_id=$3 
     WHERE id=$4 
-    RETURNING *`, [name, description, categoryId, subCategoryId]);
+    RETURNING 
+    name, 
+    description,
+    category_id as "categoryId"
+    `, [name, description, categoryId, subCategoryId]);
   return result.rows[0];
 }
 

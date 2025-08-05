@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from "express"
-import { productSchema } from "../schemas/product.schema"
-import z, { success } from "zod";
-import { fetchAllProducts, fetchOneProductById, insertProduct } from "../services/product.service";
-import { saveImageToCloudinary } from "../utils/cloudinary";
-import { insertProductImages } from "../services/image.service";
+import { patchProductSchema, productSchema } from "../schemas/product.schema"
+import z from "zod";
+import { fetchAllProducts, fetchOneProductById, insertProduct, patchProductById } from "../services/product.service";
+import { deleteImageFromCloudinary, saveImageToCloudinary } from "../utils/cloudinary";
+import { deleteImageByImageUrl, insertProductImages } from "../services/image.service";
 import pool from "../utils/db";
 import { parseIdParam } from "../utils/parseIdParam";
 export const createProduct = async (
@@ -13,7 +13,7 @@ export const createProduct = async (
 ): Promise<void> => {
   const client = await pool.connect();
   try {
-    // Validation body data
+    // Validation body (data
     const { success, data, error } = productSchema.safeParse(req.body);
     if (!success) {
       res.status(400).json({
@@ -170,6 +170,184 @@ export const getOneProduct = async (
 
   } catch (error) {
     next(error);
+  }
+}
+
+export const updateProduct = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  const client = await pool.connect();
+  try {
+    // Id validation
+    const productId = parseIdParam(req, res);
+    if (productId === null) return;
+
+    // Body (data) validation
+    const { success, data, error } = patchProductSchema.safeParse(req.body);
+    if (!success) {
+      res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: error ? z.treeifyError(error) : {}
+      })
+      return;
+    }
+
+
+    // Fetch Current Product on DB
+    const currentProduct = await fetchOneProductById(productId);
+
+
+
+    // Normalizing current product
+    const normalizedCurrentProduct = {
+      ...currentProduct,
+      images: currentProduct.images ?? [],  // replace null fields on DB with []
+    };
+
+    // Normalizing images due to append reasons, (if only has one img, its string, is not an array. Therefore its an error, prop images always has to be an array)
+    const normalizedDeletedImages = Array.isArray(data.deletedImages)
+      ? data.deletedImages
+      : data.deletedImages
+        ? [data.deletedImages]
+        : [];
+
+
+    /* // Images to delete validation
+    const sameImages = normalizedDeletedImages.length !== normalizedCurrentProduct.images.length && normalizedDeletedImages.every((deletedImage) => normalizedCurrentProduct.images.includes(deletedImage)); */
+
+    const hasImagesToDelete = data.deletedImages.length > 0
+
+    // Type for req.files 
+    const files: Express.Multer.File[] = Array.isArray(req.files) ? req.files : [];
+
+
+    // Changes in product detection
+    const hasChanges =
+      data.name !== normalizedCurrentProduct.name ||
+      data.description !== normalizedCurrentProduct.description ||
+      data.subCategoryId.toString() !== normalizedCurrentProduct.subCategoryId.toString() ||
+      Number(data.price).toFixed(2) !== Number(normalizedCurrentProduct.price).toFixed(2) ||
+      Number(data.discount) !== Number(normalizedCurrentProduct.discount) ||
+      data.brand !== normalizedCurrentProduct.brand ||
+      hasImagesToDelete ||
+      data.state !== normalizedCurrentProduct.state ||
+      files.length > 0;
+
+
+    // Response if it doesn't have changes
+    if (!hasChanges) {
+      res.status(200).json({
+        success: true,
+        message: "No changes detected",
+        data: data
+      })
+      return;
+    }
+
+    // Begin transaction
+    await client.query('BEGIN');
+
+    // Update product on DB
+    const updatedProduct = await patchProductById(productId, data, client)
+
+    // Response if update of product failed
+    if (!updatedProduct) {
+      res.status(500).json({
+        success: false,
+        message: 'Update of product failed'
+      })
+      return;
+    }
+
+    // Delete images from cloudinary and from DB only if the current image urls are not equal to deleted images array from frontend
+    try {
+      if (hasImagesToDelete) {
+        for (const imageUrl of normalizedDeletedImages) {
+          await deleteImageFromCloudinary(imageUrl);
+          await deleteImageByImageUrl(imageUrl, client);
+        }
+      }
+    } catch (error) {
+      await client.query('ROLLBACK');
+
+      // Error response
+      res.status(500).json({
+        success: false,
+        message: 'Error deleting image URLs to the database',
+        error: error
+      });
+      return;
+    }
+
+
+    // Add new images if we have at leat one new image of type File
+    if (files.length > 0) {
+      let newImages;
+      try {
+        // Promise.all receives a "promises array" and the "Promise.all" is resolved when all the elements of this array are solved
+        newImages = await Promise.all(files.map((newImage) => saveImageToCloudinary(newImage, productId))); //  Saving images on cloudinary
+      } catch (cloudinaryError) {
+        // Rollback if we couldn't save image to cloudinary
+        await client.query('ROLLBACK');
+
+        // Error Response
+        res.status(500).json({
+          success: false,
+          message: 'Error uploading images to Cloudinary',
+          error: cloudinaryError
+        });
+        return;
+      }
+
+      //  If we don't have images that were uploaded to cloudinary, rollback
+      if (newImages.length === 0) {
+        await client.query('ROLLBACK');
+        res.status(500).json({
+          success: false,
+          message: 'No images uploaded'
+        });
+        return;
+      }
+
+      // If images were uploaded successfully, images will have the url of images
+      try {
+        for (const imageUrl of newImages) {
+          // Insert this images ulrs into the db
+          await insertProductImages(productId, imageUrl, client);
+        }
+      } catch (insertError) {
+        // Rollback if we couldn't insert urls images into the db
+        await client.query('ROLLBACK');
+
+        // Error response
+        res.status(500).json({
+          success: false,
+          message: 'Error saving image URLs to the database',
+          error: insertError
+        });
+        return;
+      }
+    }
+
+
+    // If all was good, we commit the transaction
+    await client.query('COMMIT');
+
+    // Result response
+    res.status(200).json({
+      success: true,
+      message: 'Product updated successfully',
+      data: updatedProduct
+    });
+  } catch (error) {
+    // Rollback in case happens any error
+    await client.query('ROLLBACK');
+    next(error)
+  } finally {
+    client.release();
   }
 }
 

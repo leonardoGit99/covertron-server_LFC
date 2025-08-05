@@ -12,3 +12,12 @@ export const insertProductImages = async (productId: number, imageUrl: string, c
 
   return result.rows[0];
 }
+
+export const deleteImageByImageUrl = async (imageUrl: string, client: PoolClient): Promise<void> => {
+  await client.query(`
+    DELETE 
+    FROM
+    product_images
+    WHERE image_url = $1
+    `, [imageUrl])
+}

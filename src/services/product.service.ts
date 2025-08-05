@@ -1,5 +1,5 @@
 import { PoolClient } from "pg";
-import { NewProduct, Product, Products } from "../models/product.model"
+import { NewProduct, PatchProduct, Product, Products } from "../models/product.model"
 import pool from "../utils/db";
 
 export const insertProduct = async (body: NewProduct, client: PoolClient): Promise<Product> => {
@@ -65,3 +65,28 @@ export const fetchOneProductById = async (productId: number): Promise<Product> =
 
   return result.rows[0];
 }
+
+export const patchProductById = async (productId: number, body: PatchProduct, client: PoolClient): Promise<Product> => {
+  const { name, description, subCategoryId, price, discount, brand, state } = body;
+  const result = await client.query(`
+    UPDATE products
+    SET name = $1, 
+    description = $2, 
+    subcategory_id = $3, 
+    price = $4, 
+    discount = $5, 
+    brand = $6,
+    state = $7
+    WHERE id=$8
+    RETURNING name,
+    description,
+    subcategory_id as "subCategoryId",
+    price,
+    discount,
+    brand,
+    state
+    `, [name, description, subCategoryId, price, discount, brand, state, productId]);
+  return result.rows[0];
+}
+
+
