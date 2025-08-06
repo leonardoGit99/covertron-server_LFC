@@ -42,6 +42,38 @@ export const fetchAllProducts = async (): Promise<Products> => {
 }
 
 
+export const filterProducts = async (search: string = ''): Promise<Products> => {
+  const searchTerm = `%${search}%`;
+  const result = await pool.query(`
+    SELECT 
+      p.id,
+      p.name, 
+      p.description, 
+      p.discount, 
+      p.brand,
+      p.subcategory_id AS "subCategoryId",
+      c.id AS "categoryId",
+      p.state, 
+      p.price,
+      ARRAY_AGG(i.image_url) FILTER (WHERE i.image_url IS NOT NULL) AS"images",
+      c.name AS "categoryName",
+      s.name AS "subCategoryName"
+    FROM products p
+    LEFT JOIN product_images i ON p.id = i.product_id
+    JOIN subcategories s ON s.id = p.subcategory_id 
+    JOIN categories c ON c.id = s.category_id
+    WHERE LOWER(p.name) LIKE $1 OR LOWER(p.description) LIKE $1
+    GROUP BY 
+        p.id, p.name, p.description, p.discount, p.brand,
+        p.subcategory_id, p.state, p.price, c.id, c.name, s.name
+    ORDER BY 
+      p.name ASC
+    `, [searchTerm])
+
+  return result.rows;
+}
+
+
 export const fetchOneProductById = async (productId: number): Promise<Omit<Product, 'categoryName' | 'subCategoryName'>> => {
   const result = await pool.query(`
     SELECT 

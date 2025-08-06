@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express"
 import { patchProductSchema, productSchema } from "../schemas/product.schema"
 import z from "zod";
-import { deleteProductById, fetchAllProducts, fetchOneProductById, insertProduct, patchProductById } from "../services/product.service";
+import { deleteProductById, fetchAllProducts, fetchOneProductById, filterProducts, insertProduct, patchProductById } from "../services/product.service";
 import { deleteImageFromCloudinary, saveImageToCloudinary } from "../utils/cloudinary";
 import { deleteImageByImageUrl, getAllImagesByProduct, insertProductImages } from "../services/image.service";
 import pool from "../utils/db";
@@ -118,7 +118,13 @@ export const getAllProducts = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const products = await fetchAllProducts();
+    let products;
+    const search = req.query.search?.toString().toLowerCase();
+    if (search) {
+      products = await filterProducts(search);
+    } else {
+      products = await fetchAllProducts();
+    }
 
     const normalizedProducts = products.map(product => ({
       ...product,
