@@ -13,7 +13,8 @@ interface MulterFile {
 
 const extractPublicId = (publicUrl: string): string => {
   const url = new URL(publicUrl);
-  const parts = url.pathname.split('/');
+  const decodedPathname = decodeURIComponent(url.pathname); //  decodifica %20, %C3%A9, etc.
+  const parts = decodedPathname.split('/');
 
   const uploadIndex = parts.indexOf('upload');
   if (uploadIndex === -1) {
@@ -22,7 +23,7 @@ const extractPublicId = (publicUrl: string): string => {
 
   // Captura el path después de "upload", eliminando la versión
   const relevantParts = parts.slice(uploadIndex + 1);
-  
+
   // Si el primer elemento es versión (ej: v12345678), lo quitamos
   if (/^v\d+$/.test(relevantParts[0])) {
     relevantParts.shift();

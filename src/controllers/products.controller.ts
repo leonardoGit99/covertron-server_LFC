@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from "express"
 import { patchProductSchema, productSchema } from "../schemas/product.schema"
 import z from "zod";
-import { fetchAllProducts, fetchOneProductById, insertProduct, patchProductById } from "../services/product.service";
+import { deleteProductById, fetchAllProducts, fetchOneProductById, insertProduct, patchProductById } from "../services/product.service";
 import { deleteImageFromCloudinary, saveImageToCloudinary } from "../utils/cloudinary";
-import { deleteImageByImageUrl, insertProductImages } from "../services/image.service";
+import { deleteImageByImageUrl, getAllImagesByProduct, insertProductImages } from "../services/image.service";
 import pool from "../utils/db";
 import { parseIdParam } from "../utils/parseIdParam";
 export const createProduct = async (
@@ -277,7 +277,7 @@ export const updateProduct = async (
       res.status(500).json({
         success: false,
         message: 'Error deleting image URLs to the database',
-        error: error
+        errors: error
       });
       return;
     }
@@ -297,7 +297,7 @@ export const updateProduct = async (
         res.status(500).json({
           success: false,
           message: 'Error uploading images to Cloudinary',
-          error: cloudinaryError
+          errors: cloudinaryError
         });
         return;
       }
@@ -326,7 +326,7 @@ export const updateProduct = async (
         res.status(500).json({
           success: false,
           message: 'Error saving image URLs to the database',
-          error: insertError
+          errors: insertError
         });
         return;
       }
@@ -351,4 +351,70 @@ export const updateProduct = async (
   }
 }
 
+
+
+export const deleteProduct = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  const client = await pool.connect();
+  try {
+    // Id Validation
+    const productId = parseIdParam(req, res);
+    if (productId === null) return;
+
+    // Getting images array that are asociated to one product 
+    const currentProductImages = await getAllImagesByProduct(productId);
+
+    console.log(currentProductImages);
+    // Start transaction
+    await client.query('BEGIN');
+
+    // Delete imgs that are asociated to one product
+    try {
+      if (Array.isArray(currentProductImages) && currentProductImages.length > 0) {
+        await Promise.all(currentProductImages.map(url => deleteImageFromCloudinary(url)));
+      }
+    } catch (error) {
+      console.log(error)
+      await client.query('ROLLBACK');
+      // Error response
+      res.status(500).json({
+        success: false,
+        message: 'Error deleting image URLs from cloudinary',
+        errors: error
+      });
+      return;
+    }
+
+    // Delete product from db
+    const productDeleted = await deleteProductById(productId, client);
+
+    if (!productDeleted) {
+      await client.query('ROLLBACK');
+
+      // Error response
+      res.status(404).json({
+        success: false,
+        message: 'Product not found',
+      })
+      return;
+    }
+
+    await client.query('COMMIT');
+    // Response
+    res.status(200).json({
+      success: true,
+      message: 'Product deleted successfully'
+    });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    next(error);
+  } finally {
+    client.release();
+  }
+
+}
 

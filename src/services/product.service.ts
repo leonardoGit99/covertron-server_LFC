@@ -91,4 +91,15 @@ export const patchProductById = async (productId: number, body: PatchProduct, cl
   return result.rows[0];
 }
 
+export const deleteProductById = async (productId: number, client: PoolClient): Promise<boolean> => {
+  const result = await client.query(`
+    DELETE 
+    FROM products
+    WHERE id = $1
+    `, [productId])
+
+  console.log(result)
+  return result.rowCount !== null && result.rowCount > 0;
+}
+
 
