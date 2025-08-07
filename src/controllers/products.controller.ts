@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express"
 import { patchProductSchema, productSchema } from "../schemas/product.schema"
 import z from "zod";
-import { deleteProductById, fetchAllProducts, fetchOneProductById, filterProducts, insertProduct, patchProductById } from "../services/product.service";
+import { countFilteredProducts, countProducts, deleteProductById, fetchAllProducts, fetchOneProductById, filterProducts, insertProduct, patchProductById } from "../services/product.service";
 import { deleteImageFromCloudinary, saveImageToCloudinary } from "../utils/cloudinary";
 import { deleteImageByImageUrl, getAllImagesByProduct, insertProductImages } from "../services/image.service";
 import pool from "../utils/db";
@@ -119,11 +119,18 @@ export const getAllProducts = async (
 ): Promise<void> => {
   try {
     let products;
+    let totalProducts;
     const search = req.query.search?.toString().toLowerCase();
+    const page = parseInt(req.query.page as string) || 1;     // página actual
+    const limit = parseInt(req.query.limit as string) || 10;
+    const offset = (page - 1) * limit; //  calcula el desplazamiento real
+    
     if (search) {
-      products = await filterProducts(search);
+      products = await filterProducts(search, limit, offset);
+      totalProducts = await countFilteredProducts(search);
     } else {
-      products = await fetchAllProducts();
+      products = await fetchAllProducts(limit, offset);
+      totalProducts = await countProducts();
     }
 
     const normalizedProducts = products.map(product => ({
@@ -136,7 +143,7 @@ export const getAllProducts = async (
       success: true,
       message: normalizedProducts.length === 0 ? 'No products found' : 'Products retrieved successfully',
       data: {
-        total: normalizedProducts.length,
+        total: totalProducts,
         products: normalizedProducts
       }
     })
@@ -144,6 +151,8 @@ export const getAllProducts = async (
     next(error);
   }
 }
+
+
 
 export const getOneProduct = async (
   req: Request,
