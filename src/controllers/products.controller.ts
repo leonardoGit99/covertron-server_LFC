@@ -124,13 +124,56 @@ export const getAllProducts = async (
     const page = parseInt(req.query.page as string) || 1;     // página actual
     const limit = parseInt(req.query.limit as string) || 10;
     const offset = (page - 1) * limit; //  calcula el desplazamiento real
-    
+    const availableOnly = false;
+
     if (search) {
-      products = await filterProducts(search, limit, offset);
-      totalProducts = await countFilteredProducts(search);
+      products = await filterProducts(search, limit, offset, availableOnly);
+      totalProducts = await countFilteredProducts(search, availableOnly);
     } else {
-      products = await fetchAllProducts(limit, offset);
-      totalProducts = await countProducts();
+      products = await fetchAllProducts(limit, offset, availableOnly);
+      totalProducts = await countProducts(availableOnly);
+    }
+
+    const normalizedProducts = products.map(product => ({
+      ...product,
+      images: product.images ?? []  // reemplaza null por []
+    }));
+
+
+    res.status(200).json({
+      success: true,
+      message: normalizedProducts.length === 0 ? 'No products found' : 'Products retrieved successfully',
+      data: {
+        total: totalProducts,
+        products: normalizedProducts
+      }
+    })
+  } catch (error) {
+    next(error);
+  }
+}
+
+export const getAllAvailableProducts = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    let products;
+    let totalProducts;
+    const search = req.query.search?.toString().toLowerCase();
+    const page = parseInt(req.query.page as string) || 1;     // página actual
+    const limit = parseInt(req.query.limit as string) || 10;
+    const offset = (page - 1) * limit; //  calcula el desplazamiento real
+    const availableOnly = true;
+
+
+    if (search) {
+      products = await filterProducts(search, limit, offset, availableOnly);
+      totalProducts = await countFilteredProducts(search, availableOnly);
+    } else {
+      products = await fetchAllProducts(limit, offset, availableOnly);
+      totalProducts = await countProducts(availableOnly);
     }
 
     const normalizedProducts = products.map(product => ({

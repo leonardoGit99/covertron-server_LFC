@@ -12,19 +12,33 @@ export const insertProduct = async (body: NewProduct, client: PoolClient): Promi
   return result.rows[0];
 }
 
-export const countProducts = async (): Promise<number> => {
-  const result = await pool.query(`
+export const countProducts = async (availableOnly: boolean): Promise<number> => {
+  let whereClause = '';
+
+  if (availableOnly) {
+    whereClause = (`WHERE state = 'available'`);
+  }
+
+
+  const query = (`
     SELECT COUNT(*) AS "totalProducts"
     FROM products
+    ${whereClause}
     `)
 
-  console.log(result.rows[0]);
+  const result = await pool.query(query);
   return parseInt(result.rows[0].totalProducts, 10);
 }
 
 
-export const fetchAllProducts = async (limit: number, offset: number): Promise<Products> => {
-  const result = await pool.query(`
+export const fetchAllProducts = async (limit: number, offset: number, availableOnly: boolean): Promise<Products> => {
+  const params = [limit, offset];
+  let whereClause = '';
+  if (availableOnly) {
+    whereClause = `WHERE p.state = 'available'`
+  }
+
+  const query = `
       SELECT p.id, 
         p.name, 
         p.description, 
@@ -41,6 +55,7 @@ export const fetchAllProducts = async (limit: number, offset: number): Promise<P
       LEFT JOIN product_images i ON p.id = i.product_id
       JOIN subcategories s ON s.id = p.subcategory_id
       JOIN categories c ON c.id = s.category_id
+      ${whereClause}
       GROUP BY 
         p.id, p.name, p.description, p.discount, p.brand,
         p.subcategory_id, p.state, p.price, c.id, c.name, s.name
@@ -48,25 +63,49 @@ export const fetchAllProducts = async (limit: number, offset: number): Promise<P
         p.created_at DESC
       LIMIT $1
       OFFSET $2
-    `, [limit, offset])
-
+    `
+  const result = await pool.query(query, params);
   return result.rows;
 }
 
-export const countFilteredProducts = async (search: string = ''): Promise<number> => {
+export const countFilteredProducts = async (search: string = '', availableOnly: boolean): Promise<number> => {
   const searchTerm = `%${search}%`;
-  const result = await pool.query(`
+  let query;
+  const params = [searchTerm];
+  const conditions = [];
+
+  if (availableOnly) {
+    conditions.push(`state = 'available'`);
+  }
+
+  conditions.push(`(LOWER(name) LIKE $1 OR LOWER(description) LIKE $1)`);
+
+  const whereClause = `WHERE ${conditions.join(' AND ')}`
+
+  query = `
     SELECT COUNT(*) AS "totalFilteredProducts"
     FROM products
-    WHERE LOWER(name) LIKE $1 OR LOWER(description) LIKE $1
-    `, [searchTerm])
+    ${whereClause}
+    `
+  const result = await pool.query(query, params);
 
   return parseInt(result.rows[0].totalFilteredProducts, 10);
 }
 
-export const filterProducts = async (search: string = '', limit: number, offset: number): Promise<Products> => {
+export const filterProducts = async (search: string = '', limit: number, offset: number, availableOnly: boolean): Promise<Products> => {
+  let query;
   const searchTerm = `%${search}%`;
-  const result = await pool.query(`
+  const params = [searchTerm, limit, offset]
+  const conditions = [];
+
+  if (availableOnly) {
+    conditions.push(`p.state = 'available'`);
+  }
+
+  conditions.push(`(LOWER(p.name) LIKE $1 OR LOWER(p.description) LIKE $1)`);
+  const whereClause = `WHERE ${conditions.join(' AND ')}`;
+
+  query = `
     SELECT 
       p.id,
       p.name, 
@@ -84,7 +123,7 @@ export const filterProducts = async (search: string = '', limit: number, offset:
     LEFT JOIN product_images i ON p.id = i.product_id
     JOIN subcategories s ON s.id = p.subcategory_id 
     JOIN categories c ON c.id = s.category_id
-    WHERE LOWER(p.name) LIKE $1 OR LOWER(p.description) LIKE $1
+    ${whereClause}
     GROUP BY 
         p.id, p.name, p.description, p.discount, p.brand,
         p.subcategory_id, p.state, p.price, c.id, c.name, s.name
@@ -92,8 +131,9 @@ export const filterProducts = async (search: string = '', limit: number, offset:
       p.created_at DESC
       LIMIT $2 
       OFFSET $3
-    `, [searchTerm, limit, offset])
+    `
 
+  const result = await pool.query(query, params);
   return result.rows;
 }
 
@@ -116,7 +156,6 @@ export const fetchAvailableProducts = async (limit: number, offset: number): Pro
       LEFT JOIN product_images i ON p.id = i.product_id
       JOIN subcategories s ON s.id = p.subcategory_id
       JOIN categories c ON c.id = s.category_id
-      WHERE p.state = 'available'
       GROUP BY 
         p.id, p.name, p.description, p.discount, p.brand,
         p.subcategory_id, p.state, p.price, c.id, c.name, s.name
