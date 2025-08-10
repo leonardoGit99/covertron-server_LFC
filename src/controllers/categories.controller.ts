@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import pool from '../utils/db';
-import { categorySchema } from '../schemas/category.schema';
-import { deleteCategoryById, insertCategory, selectAllCategories, selectCategoryById, updateCategoryById } from '../services/category.service';
+import { createCategorySchema, updateCategorySchema } from '../schemas/category.schema';
+import { deleteCategoryById, insertCategory, fetchAllCategories, updateCategoryById, fetchCategoryById } from '../services/category.service';
 import { z } from 'zod';
 import { parseIdParam } from '../utils/parseIdParam';
 
@@ -12,7 +12,7 @@ export const createCategory = async (
 ): Promise<void> => {
   try {
     // Body Validation
-    const { success, data, error } = categorySchema.safeParse(req.body);
+    const { success, data, error } = createCategorySchema.safeParse(req.body);
     if (!success) {
       res.status(400).json({
         success: false,
@@ -37,14 +37,14 @@ export const createCategory = async (
 
 export const getAllCategories = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const result = await selectAllCategories();
+    const categories = await fetchAllCategories();
 
     res.status(200).json({
       success: true,
-      message: result.length === 0 ? 'No categories found' : 'Categories retrieved successfully',
+      message: categories.length === 0 ? 'No categories found' : 'Categories retrieved successfully',
       data: {
-        total: result.length,
-        categories: result
+        total: categories.length,
+        categories: categories
       }
     });
   } catch (error) {
@@ -54,12 +54,12 @@ export const getAllCategories = async (req: Request, res: Response, next: NextFu
 
 export const getOneCategory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const id = parseIdParam(req, res);
-    if (id === null) return;
+    const categoryId = parseIdParam(req, res);
+    if (categoryId === null) return;
 
-    const result = await selectCategoryById(id);
+    const category = await fetchCategoryById(categoryId);
 
-    if (!result) {
+    if (!category) {
       res.status(404).json({
         success: false,
         message: 'No categories found'
@@ -70,7 +70,7 @@ export const getOneCategory = async (req: Request, res: Response, next: NextFunc
     res.status(200).json({
       success: true,
       message: 'Category found',
-      data: result
+      data: category
     });
   } catch (error) {
     next(error);
@@ -86,13 +86,13 @@ export const updateCategory = async (
   const client = await pool.connect();
 
   try {
-
     // Id validation
-    const id = parseIdParam(req, res);
-    if (id === null) return;
+    const categoryId = parseIdParam(req, res);
+    if (categoryId === null) return;
 
     // Body Validation
-    const { success, data, error } = categorySchema.safeParse(req.body);
+    const { success, data: validatedCategory, error } = updateCategorySchema.safeParse(req.body);
+
 
     if (!success) {
       res.status(400).json({
@@ -104,9 +104,9 @@ export const updateCategory = async (
     }
 
     // Getting Category store in db (previous category)
-    const prevCategory = await selectCategoryById(id);
+    const currentCategory = await fetchCategoryById(categoryId);
 
-    if (!prevCategory) {
+    if (!currentCategory) {
       res.status(404).json({
         success: false,
         message: 'Category not found'
@@ -114,11 +114,11 @@ export const updateCategory = async (
       return;
     }
     // Validating if it doesn't have changes
-    if (prevCategory.name === data.name && prevCategory.description === data.description) {
+    if (currentCategory.name === validatedCategory.name && currentCategory.description === validatedCategory.description) {
       res.status(200).json({
         success: true,
         message: 'No changes detected',
-        data: prevCategory
+        data: currentCategory
       });
       return;
     }
@@ -127,10 +127,10 @@ export const updateCategory = async (
     await client.query('BEGIN');
 
     // Call to update service in db
-    const result = await updateCategoryById(id, data, client);
+    const categoryUpdated = await updateCategoryById(categoryId, validatedCategory, client);
 
     // If there is not the category during update, rollback
-    if (!result) {
+    if (!categoryUpdated) {
       await client.query('ROLLBACK');
       res.status(404).json({
         success: false,
@@ -146,7 +146,7 @@ export const updateCategory = async (
     res.status(200).json({
       success: true,
       message: 'Category updated successfully',
-      data: result
+      data: categoryUpdated
     });
   } catch (error) {
     // If there's an error, rollback
@@ -163,12 +163,12 @@ export const deleteCategory = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const id = parseIdParam(req, res);
-    if (id === null) return;
+    const categoryId = parseIdParam(req, res);
+    if (categoryId === null) return;
 
-    const result = await deleteCategoryById(id);
+    const deletedCategory = await deleteCategoryById(categoryId);
 
-    if (!result) {
+    if (!deletedCategory) {
       res.status(404).json({
         success: false,
         message: 'Category not found'
@@ -179,7 +179,7 @@ export const deleteCategory = async (
     res.status(200).json({
       success: true,
       message: 'Category deleted successfully',
-      data: { id: result.id }
+      data: { id: deletedCategory.id }
     });
   } catch (error) {
     next(error);

@@ -1,8 +1,9 @@
 import z from 'zod';
-import { categorySchema } from '../schemas/category.schema';
+import { createCategorySchema, updateCategorySchema } from '../schemas/category.schema';
 
-export type NewCategory = z.infer<typeof categorySchema>
-export type Category = NewCategory & {
+export type CreateCategoryDTO = z.infer<typeof createCategorySchema>
+export type updateCategoryDTO = z.infer<typeof updateCategorySchema>
+export type Category = CreateCategoryDTO & {
   id: number
 }
 export type Categories = Category[]

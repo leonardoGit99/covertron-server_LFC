@@ -1,8 +1,8 @@
 import { PoolClient } from "pg";
-import { Categories, Category, NewCategory } from "../models/category.model";
+import { Categories, Category, CreateCategoryDTO, updateCategoryDTO } from "../models/category.model";
 import pool from "../utils/db";
 
-export const insertCategory = async (validatedBody: NewCategory): Promise<Category> => {
+export const insertCategory = async (validatedBody: CreateCategoryDTO): Promise<Category> => {
   const { name, description } = validatedBody;
   const result = await pool.query(`
     INSERT INTO categories (name, description)
@@ -13,9 +13,12 @@ export const insertCategory = async (validatedBody: NewCategory): Promise<Catego
   return result.rows[0];
 }
 
-export const selectAllCategories = async (): Promise<Categories> => {
+export const fetchAllCategories = async (): Promise<Categories> => {
   const result = await pool.query(`
-    SELECT id, name, description  
+    SELECT 
+      id, 
+      name, 
+      description  
     FROM categories 
     ORDER BY name ASC
     `);
@@ -23,17 +26,20 @@ export const selectAllCategories = async (): Promise<Categories> => {
   return result.rows
 }
 
-export const selectCategoryById = async (id: number): Promise<Category> => {
+export const fetchCategoryById = async (categoryId: number): Promise<Category> => {
   const result = await pool.query(`
-    SELECT id, name, description
+    SELECT 
+      id, 
+      name, 
+      description
     FROM categories 
     WHERE id=$1`,
-    [id])
+    [categoryId])
 
   return result.rows[0];
 }
 
-export const updateCategoryById = async (id: number, body: NewCategory, client: PoolClient): Promise<Category> => {
+export const updateCategoryById = async (id: number, body: updateCategoryDTO, client: PoolClient): Promise<Category> => {
   const { name, description } = body;
   const result = await client.query(`
     UPDATE categories 
@@ -50,7 +56,7 @@ export const deleteCategoryById = async (id: number): Promise<Category> => {
   const result = await pool.query(`
     DELETE FROM categories 
     WHERE id=$1 
-    RETURNING *
+    RETURNING id
     `, [id])
 
   return result.rows[0];

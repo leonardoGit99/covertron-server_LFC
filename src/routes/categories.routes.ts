@@ -8,7 +8,7 @@ router.get('/categories', getAllCategories);
 router.get('/categories/:id', getOneCategory);
 router.post('/categories', createCategory);
 router.delete('/categories/:id', deleteCategory);
-router.put('/categories/:id', updateCategory);
+router.patch('/categories/:id', updateCategory);
 
 
 export default router;
