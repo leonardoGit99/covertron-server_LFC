@@ -1,14 +1,16 @@
 import { PoolClient } from "pg";
 import { NewProduct, PatchProduct, Product, Products } from "../models/product.model"
 import pool from "../utils/db";
+import { parseToFormmatedDate } from "../utils/parseToFormattedDate";
+import { calculateDiscountedPrice } from "../utils/discountedPrice";
 
 export const insertProduct = async (body: NewProduct, client: PoolClient): Promise<Product> => {
-  const { name, description, subCategoryId, price, discount, brand } = body;
+  const { name, description, subCategoryId, originalPrice, discount, brand } = body;
   const result = await client.query(`
       INSERT INTO products (name, description, subcategory_id, price, discount, brand) 
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
-    `, [name, description, subCategoryId, price, discount, brand])
+    `, [name, description, subCategoryId, originalPrice, discount, brand])
   return result.rows[0];
 }
 
@@ -47,7 +49,7 @@ export const fetchAllProducts = async (limit: number, offset: number, availableO
         p.subcategory_id AS "subCategoryId",
         c.id AS "categoryId",
         p.state, 
-        p.price,
+        p.price AS "originalPrice",
         ARRAY_AGG(i.image_url) FILTER (WHERE i.image_url IS NOT NULL) AS "images",
         c.name AS "categoryName",
         s.name AS "subCategoryName"
@@ -63,9 +65,19 @@ export const fetchAllProducts = async (limit: number, offset: number, availableO
         p.created_at DESC
       LIMIT $1
       OFFSET $2
-    `
+    `;
+
+
   const result = await pool.query(query, params);
-  return result.rows;
+
+  const products = result.rows;
+  const normalizedProducts = products.map(product => ({
+    ...product,
+    images: product.images ?? [],  // reemplaza null por []
+    discountedPrice: calculateDiscountedPrice(product.originalPrice, product.discount)
+  }));
+
+  return normalizedProducts;
 }
 
 export const countFilteredProducts = async (search: string = '', availableOnly: boolean): Promise<number> => {
@@ -138,36 +150,6 @@ export const filterProducts = async (search: string = '', limit: number, offset:
 }
 
 
-export const fetchAvailableProducts = async (limit: number, offset: number): Promise<Products> => {
-  const result = await pool.query(`
-      SELECT p.id, 
-        p.name, 
-        p.description, 
-        p.discount, 
-        p.brand,
-        p.subcategory_id AS "subCategoryId",
-        c.id AS "categoryId",
-        p.state, 
-        p.price,
-        ARRAY_AGG(i.image_url) FILTER (WHERE i.image_url IS NOT NULL) AS "images",
-        c.name AS "categoryName",
-        s.name AS "subCategoryName"
-      FROM products p
-      LEFT JOIN product_images i ON p.id = i.product_id
-      JOIN subcategories s ON s.id = p.subcategory_id
-      JOIN categories c ON c.id = s.category_id
-      GROUP BY 
-        p.id, p.name, p.description, p.discount, p.brand,
-        p.subcategory_id, p.state, p.price, c.id, c.name, s.name
-      ORDER BY 
-        p.created_at DESC
-      LIMIT $1
-      OFFSET $2
-    `, [limit, offset])
-
-  return result.rows;
-}
-
 export const fetchOneProductById = async (productId: number): Promise<Omit<Product, 'categoryName' | 'subCategoryName'>> => {
   const result = await pool.query(`
     SELECT 
@@ -179,7 +161,8 @@ export const fetchOneProductById = async (productId: number): Promise<Omit<Produ
       p.subcategory_id AS "subCategoryId",
       c.id AS "categoryId",
       p.state,
-      p.price,
+      p.price as "originalPrice",
+      p.created_at AS "createdAt",
       ARRAY_AGG(i.image_url) FILTER (WHERE i.image_url IS NOT NULL) AS "images"
     FROM products p
     LEFT JOIN product_images i ON p.id = i.product_id
@@ -188,14 +171,24 @@ export const fetchOneProductById = async (productId: number): Promise<Omit<Produ
     WHERE p.id = $1
     GROUP BY 
         p.id, p.name, p.description, p.discount, p.brand,
-        p.subcategory_id, p.state, p.price, c.id
-    `, [productId])
+        p.subcategory_id, p.state, p.price, c.id, p.created_at
+    `, [productId]);
 
-  return result.rows[0];
+  const product = result.rows[0];
+
+  const normalizedProduct: Product = {
+    ...product,
+    images: product.images ?? [],  // replace null with []
+    createdAt: parseToFormmatedDate(product.createdAt), // Parse to "day moth year format"
+    discountedPrice: calculateDiscountedPrice(product.originalPrice, product.discount)
+  };
+
+
+  return normalizedProduct;
 }
 
 export const patchProductById = async (productId: number, body: PatchProduct, client: PoolClient): Promise<Product> => {
-  const { name, description, subCategoryId, price, discount, brand, state } = body;
+  const { name, description, subCategoryId, originalPrice, discount, brand, state } = body;
   const result = await client.query(`
     UPDATE products
     SET name = $1, 
@@ -213,7 +206,7 @@ export const patchProductById = async (productId: number, body: PatchProduct, cl
     discount,
     brand,
     state
-    `, [name, description, subCategoryId, price, discount, brand, state, productId]);
+    `, [name, description, subCategoryId, originalPrice, discount, brand, state, productId]);
   return result.rows[0];
 }
 

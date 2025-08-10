@@ -6,6 +6,7 @@ import { deleteImageFromCloudinary, saveImageToCloudinary } from "../utils/cloud
 import { deleteImageByImageUrl, getAllImagesByProduct, insertProductImages } from "../services/image.service";
 import pool from "../utils/db";
 import { parseIdParam } from "../utils/parseIdParam";
+import { parseToFormmatedDate } from "../utils/parseToFormattedDate";
 export const createProduct = async (
   req: Request,
   res: Response,
@@ -176,18 +177,14 @@ export const getAllAvailableProducts = async (
       totalProducts = await countProducts(availableOnly);
     }
 
-    const normalizedProducts = products.map(product => ({
-      ...product,
-      images: product.images ?? []  // reemplaza null por []
-    }));
 
 
     res.status(200).json({
       success: true,
-      message: normalizedProducts.length === 0 ? 'No products found' : 'Products retrieved successfully',
+      message: products.length === 0 ? 'No products found' : 'Products retrieved successfully',
       data: {
         total: totalProducts,
-        products: normalizedProducts
+        products: products
       }
     })
   } catch (error) {
@@ -207,15 +204,12 @@ export const getOneProduct = async (
     if (productId === null) return;
 
     const product = await fetchOneProductById(productId);
-
-    const normalizedProduct = {
-      ...product,
-      images: product.images ?? []  // reemplaza null por []
-    };
+    
+    console.log(product);
     if (!product) {
-      res.status(500).json({
+      res.status(404).json({
         success: false,
-        message: 'Creation of product failed'
+        message: 'Product not found'
       })
       return;
     }
@@ -223,7 +217,7 @@ export const getOneProduct = async (
     res.status(200).json({
       success: true,
       message: 'Product found',
-      data: normalizedProduct
+      data: product
     });
 
   } catch (error) {
@@ -287,7 +281,7 @@ export const updateProduct = async (
       data.name !== normalizedCurrentProduct.name ||
       data.description !== normalizedCurrentProduct.description ||
       data.subCategoryId.toString() !== normalizedCurrentProduct.subCategoryId.toString() ||
-      Number(data.price).toFixed(2) !== Number(normalizedCurrentProduct.price).toFixed(2) ||
+      Number(data.originalPrice).toFixed(2) !== Number(normalizedCurrentProduct.originalPrice).toFixed(2) ||
       Number(data.discount) !== Number(normalizedCurrentProduct.discount) ||
       data.brand !== normalizedCurrentProduct.brand ||
       hasImagesToDelete ||
