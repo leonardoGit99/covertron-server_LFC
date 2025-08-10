@@ -52,12 +52,11 @@ export const updateCategoryById = async (id: number, body: updateCategoryDTO, cl
   return result.rows[0];
 }
 
-export const deleteCategoryById = async (id: number): Promise<Category> => {
+export const deleteCategoryById = async (id: number): Promise<boolean> => {
   const result = await pool.query(`
     DELETE FROM categories 
-    WHERE id=$1 
-    RETURNING id
+    WHERE id=$1
     `, [id])
 
-  return result.rows[0];
+  return result.rowCount !== null && result.rowCount > 0;
 }

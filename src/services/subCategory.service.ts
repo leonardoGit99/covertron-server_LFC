@@ -1,13 +1,18 @@
 import { PoolClient } from "pg";
-import { NewSubCategory, SubCategories, SubCategory } from "../models/subCategory.model";
+import { CreateSubCategoryDTO, SubCategories, SubCategory, UpdateSubCategoryDTO } from "../models/subCategory.model";
 import pool from "../utils/db";
 
-export const insertSubCategory = async (body: NewSubCategory, categoryId: number): Promise<SubCategory> => {
+export const insertSubCategory = async (body: CreateSubCategoryDTO, categoryId: number): Promise<SubCategory> => {
   const { name, description } = body;
   const result = await pool.query(`
     INSERT INTO subcategories (name, description, category_id) 
     VALUES ($1, $2, $3) 
-    RETURNING *`, [name, description, categoryId]);
+    RETURNING 
+    id,
+    name, 
+    description,
+    category_id AS "categoryId"
+    `, [name, description, categoryId]);
 
   return result.rows[0];
 }
@@ -45,29 +50,32 @@ export const getOneSubCategoryById = async (subCategoryId: number): Promise<SubC
     FROM subcategories 
     JOIN categories ON subcategories.category_id = categories.id 
     WHERE subcategories.id = $1`, [subCategoryId]);
+
   return result.rows[0];
 }
 
-export const updateSubCategoryById = async (categoryId: number, subCategoryId: number, body: NewSubCategory, client: PoolClient): Promise<SubCategory> => {
+export const updateSubCategoryById = async (categoryId: number, subCategoryId: number, body: UpdateSubCategoryDTO, client: PoolClient): Promise<SubCategory> => {
   const { name, description } = body;
   const result = await client.query(`
     UPDATE subcategories 
     SET name=$1, description=$2, category_id=$3 
     WHERE id=$4 
-    RETURNING 
+    RETURNING
+    id,
     name, 
     description,
     category_id as "categoryId"
     `, [name, description, categoryId, subCategoryId]);
+
   return result.rows[0];
 }
 
 
-export const deleteSubCategoryById = async (subCategoryId: number, client: PoolClient): Promise<number | null> => {
-  const result = await client.query(`
+export const deleteSubCategoryById = async (subCategoryId: number): Promise<boolean> => {
+  const result = await pool.query(`
     DELETE FROM subcategories 
-    WHERE id=$1 
-    RETURNING *
+    WHERE id=$1
     `, [subCategoryId])
-  return result.rowCount;
+    
+  return result.rowCount !== null && result.rowCount > 0;
 }

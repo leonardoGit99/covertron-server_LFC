@@ -1,8 +1,12 @@
 import z from 'zod';
-import { subCategorySchema } from '../schemas/subCategory.schema';
+import { createSubCategorySchema } from '../schemas/subCategory.schema';
+import { updateCategorySchema } from '../schemas/category.schema';
 
-export type NewSubCategory = z.infer<typeof subCategorySchema>
-export type SubCategory = NewSubCategory & {
+export type CreateSubCategoryDTO = z.infer<typeof createSubCategorySchema>
+
+export type UpdateSubCategoryDTO = z.infer<typeof updateCategorySchema>
+
+export type SubCategory = CreateSubCategoryDTO & {
   id: number
 }
 export type SubCategories = SubCategory[]

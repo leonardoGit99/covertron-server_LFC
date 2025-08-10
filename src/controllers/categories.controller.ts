@@ -30,6 +30,7 @@ export const createCategory = async (
       data: result
     })
   } catch (error) {
+    console.log(error);
     next(error);
   }
 };
@@ -73,6 +74,7 @@ export const getOneCategory = async (req: Request, res: Response, next: NextFunc
       data: category
     });
   } catch (error) {
+    console.log(error);
     next(error);
   }
 }
@@ -151,6 +153,7 @@ export const updateCategory = async (
   } catch (error) {
     // If there's an error, rollback
     await client.query('ROLLBACK');
+    console.log(error);
     next(error);
   } finally {
     client.release(); // Leave connection
@@ -178,10 +181,10 @@ export const deleteCategory = async (
 
     res.status(200).json({
       success: true,
-      message: 'Category deleted successfully',
-      data: { id: deletedCategory.id }
+      message: 'Category deleted successfully'
     });
   } catch (error) {
+    console.log(error);
     next(error);
   }
 };

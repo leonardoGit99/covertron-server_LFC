@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import pool from '../utils/db';
-import { subCategorySchema } from '../schemas/subCategory.schema';
+import { createSubCategorySchema, updateSubCategorySchema } from '../schemas/subCategory.schema';
 import z from 'zod';
 import { deleteSubCategoryById, fetchAllSubCategories, getAllSubCategoriesByCategory, getOneSubCategoryById, insertSubCategory, updateSubCategoryById } from '../services/subCategory.service';
 import { parseIdParam } from '../utils/parseIdParam';
@@ -12,9 +12,12 @@ export const createSubCategory = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    // Id validation
     const categoryId = parseIdParam(req, res);
     if (categoryId === null) return;
-    const { success, data, error } = subCategorySchema.safeParse(req.body);
+
+    const { success, data: validatedSubCategory, error } = createSubCategorySchema.safeParse(req.body);
+
     if (!success) {
       res.status(400).json({
         success: false,
@@ -24,7 +27,7 @@ export const createSubCategory = async (
       return;
     }
 
-    const result = await insertSubCategory(data, categoryId);
+    const result = await insertSubCategory(validatedSubCategory, categoryId);
 
     res.status(201).json({
       success: true,
@@ -85,6 +88,7 @@ export const getAllSubCategories = async (req: Request, res: Response, next: Nex
       }
     });
   } catch (error) {
+    console.log(error);
     next(error);
   }
 };
@@ -106,6 +110,7 @@ export const getOneSubCategory = async (req: Request, res: Response, next: NextF
       data: subCategory
     });
   } catch (error) {
+    console.log(error);
     next(error);
   }
 }
@@ -116,7 +121,6 @@ export const updateSubCategory = async (req: Request, res: Response, next: NextF
   const client = await pool.connect();
 
   try {
-    console.log(req.body)
     // Id SubCategory validation
     const { categoryId, subCategoryId } = req.params;
     if (isNaN(Number(categoryId)) || isNaN(Number(subCategoryId))) {
@@ -128,7 +132,7 @@ export const updateSubCategory = async (req: Request, res: Response, next: NextF
     }
 
     // Body validation
-    const { success, data, error } = subCategorySchema.safeParse(req.body);
+    const { success, data: validatedSubCategory, error } = updateSubCategorySchema.safeParse(req.body);
 
 
     if (!success) {
@@ -140,25 +144,25 @@ export const updateSubCategory = async (req: Request, res: Response, next: NextF
       return;
     }
 
-    // Getting subcategory in db (previous subcategory
-    const prevSubCategory = await getOneSubCategoryById(Number(subCategoryId));
-    if (!prevSubCategory) {
+    // Getting subcategory in db (previous subcategory)
+    const currentSubCategory = await getOneSubCategoryById(Number(subCategoryId));
+    if (!currentSubCategory) {
       res.status(404).json({
         success: false,
         message: 'Sub-category not found'
       })
       return;
     }
-    
 
 
-    if (prevSubCategory.name === data.name &&
-      prevSubCategory.description === data.description &&
-      Number(prevSubCategory.categoryId) === Number(data.categoryId)) {
+    // Validate changes
+    if (currentSubCategory.name === validatedSubCategory.name &&
+      currentSubCategory.description === validatedSubCategory.description &&
+      Number(currentSubCategory.categoryId) === Number(validatedSubCategory.categoryId)) {
       res.status(200).json({
         success: true,
         message: 'No changes detected',
-        data: prevSubCategory
+        data: currentSubCategory
       });
       return;
     }
@@ -169,7 +173,7 @@ export const updateSubCategory = async (req: Request, res: Response, next: NextF
 
 
     // Update sub-category
-    const subCategoryUpdated = await updateSubCategoryById(Number(categoryId), Number(subCategoryId), data, client);
+    const subCategoryUpdated = await updateSubCategoryById(Number(categoryId), Number(subCategoryId), validatedSubCategory, client);
 
     // There aren't subcategories
     if (!subCategoryUpdated) {
@@ -192,6 +196,7 @@ export const updateSubCategory = async (req: Request, res: Response, next: NextF
   } catch (error) {
     // Rollback in case something wrong happend
     await client.query("ROLLBACK");
+    console.log(error);
     next(error);
   } finally {
     client.release(); // Leave connection
@@ -200,14 +205,13 @@ export const updateSubCategory = async (req: Request, res: Response, next: NextF
 
 export const deleteSubCategory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const client = await pool.connect();
 
     const idSubCategory = parseIdParam(req, res);
     if (idSubCategory === null) return;
 
-    const result = await deleteSubCategoryById(idSubCategory, client);
+    const deletedSubCategory = await deleteSubCategoryById(idSubCategory);
 
-    if (result === 0) {
+    if (!deletedSubCategory) {
       res.status(404).json({
         success: false,
         message: "Sub-category not found"
@@ -217,9 +221,10 @@ export const deleteSubCategory = async (req: Request, res: Response, next: NextF
 
     res.status(200).json({
       success: true,
-      message: "Sub-category deleted",
+      message: "Sub-category deleted"
     });
   } catch (error) {
+    console.log(error);
     next(error);
   }
 }
