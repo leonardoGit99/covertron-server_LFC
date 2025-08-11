@@ -1,19 +1,30 @@
 import z from "zod";
-import { patchProductSchema, productSchema } from "../schemas/product.schema";
+import {  createProductSchema, updateProductSchema } from "../schemas/product.schema";
 
-export type NewProduct = z.infer<typeof productSchema>
+// ADMIN USER
+export type CreateProductDTO = z.infer<typeof createProductSchema>
+export type UpdateProductDTO = z.infer<typeof updateProductSchema>
 
-export type Product = NewProduct & {
+export interface Product extends CreateProductDTO {
   id: number,
   categoryId: number,
   categoryName: string,
   subCategoryName: string,
-  state: string,
+  state: "available" | "sold out",
   images: string[],
   createdAt: string,
+  updatedAt: string,
   discountedPrice: number
 }
 
-export type Products = Product[];
+export type ProductDetailAdminDTO = Omit<Product, 'categoryName' | 'subCategoryName' | 'createdAt' | 'updatedAt' | 'discountedPrice'>
 
-export type PatchProduct = z.infer<typeof patchProductSchema>
+
+
+
+// NORMAL USER
+export type ProductSummaryDTO = Omit<Product, 'description' | 'categoryId' | 'subCategoryId' | 'state' | 'categoryName' | 'subCategoryName' | 'images' | 'createdAt' | 'updatedAt'> & {
+  image: string
+}
+
+export type ProductDetailDTO = Omit<Product, 'categoryName' | 'subCategoryName' | 'updatedAt' | 'state'>

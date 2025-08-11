@@ -1,6 +1,6 @@
 import z from 'zod';
 
-export const productSchema = z.object({
+export const createProductSchema = z.object({
   name: z.string().min(1, "El nombre es obligatorio"),
   description: z.string().min(10, "La descripción debe tener al menos 10 caracteres"),
   subCategoryId: z.coerce.number().int().min(1, "Selecciona una sub-categoría válida"),
@@ -10,7 +10,7 @@ export const productSchema = z.object({
 });
 
 
-export const patchProductSchema = productSchema.extend({
+export const updateProductSchema = createProductSchema.extend({
   state: z.enum(['available', 'sold out']),
   deletedImages: z.union([
     z.string(),

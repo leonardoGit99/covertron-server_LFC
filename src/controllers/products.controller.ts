@@ -1,12 +1,14 @@
 import { Request, Response, NextFunction } from "express"
-import { patchProductSchema, productSchema } from "../schemas/product.schema"
+import { createProductSchema, updateProductSchema } from "../schemas/product.schema"
 import z from "zod";
-import { countFilteredProducts, countProducts, deleteProductById, fetchAllProducts, fetchOneProductById, filterProducts, insertProduct, patchProductById } from "../services/product.service";
+import { countFilteredProducts, countProducts, deleteProductById, fetchAllProductsAdmin, fetchAvailableProducts, fetchOneProductById, fetchOneProductByIdAdmin, filterProducts, filterProductsAdmin, insertProduct, updateProductById } from "../services/product.service";
 import { deleteImageFromCloudinary, saveImageToCloudinary } from "../utils/cloudinary";
 import { deleteImageByImageUrl, getAllImagesByProduct, insertProductImages } from "../services/image.service";
 import pool from "../utils/db";
 import { parseIdParam } from "../utils/parseIdParam";
-import { parseToFormmatedDate } from "../utils/parseToFormattedDate";
+
+
+
 export const createProduct = async (
   req: Request,
   res: Response,
@@ -14,8 +16,9 @@ export const createProduct = async (
 ): Promise<void> => {
   const client = await pool.connect();
   try {
-    // Validation body (data
-    const { success, data, error } = productSchema.safeParse(req.body);
+    // Validation body (data)
+    const { success, data: validatedProduct, error } = createProductSchema.safeParse(req.body);
+
     if (!success) {
       res.status(400).json({
         success: false,
@@ -30,8 +33,8 @@ export const createProduct = async (
     await client.query('BEGIN');
 
     //Insert product in DB
-    const product = await insertProduct(data, client);
-    if (!product) {
+    const productId = await insertProduct(validatedProduct, client);
+    if (!productId) {
       res.status(500).json({
         success: false,
         message: 'Creation of product failed'
@@ -39,8 +42,6 @@ export const createProduct = async (
       return;
     }
 
-
-    const productId = product.id; // Extract product id from result of insercion this product on db
 
     const files = Array.isArray(req.files) ? req.files as Express.Multer.File[] : []; // Type for req.files 
 
@@ -58,7 +59,7 @@ export const createProduct = async (
       res.status(500).json({
         success: false,
         message: 'Error uploading images to Cloudinary',
-        error: cloudinaryError
+        errors: cloudinaryError
       });
       return;
     }
@@ -79,7 +80,7 @@ export const createProduct = async (
         // Insert this images ulrs into the db
         await insertProductImages(productId, imageUrl, client);
       }
-    } catch (insertError) {
+    } catch (error) {
       // Rollback if we couldn't insert urls images into the db
       await client.query('ROLLBACK');
 
@@ -87,24 +88,24 @@ export const createProduct = async (
       res.status(500).json({
         success: false,
         message: 'Error saving image URLs to the database',
-        error: insertError
+        errors: error
       });
       return;
     }
 
-    // If all was good, we commited the transaction
+    // If all was good, we commit the transaction
     await client.query('COMMIT');
 
     // Result response
     res.status(201).json({
       success: true,
-      message: 'Product created successfully',
-      data: product
+      message: 'Product created successfully'
     });
 
   } catch (error) {
     // Rollback in case happens any error
     await client.query('ROLLBACK');
+    console.log(error)
     next(error)
   } finally {
     // Leave the client
@@ -113,7 +114,7 @@ export const createProduct = async (
 }
 
 
-export const getAllProducts = async (
+export const getAllProductsAdmin = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -128,33 +129,29 @@ export const getAllProducts = async (
     const availableOnly = false;
 
     if (search) {
-      products = await filterProducts(search, limit, offset, availableOnly);
+      products = await filterProductsAdmin(search, limit, offset);
       totalProducts = await countFilteredProducts(search, availableOnly);
     } else {
-      products = await fetchAllProducts(limit, offset, availableOnly);
+      products = await fetchAllProductsAdmin(limit, offset);
       totalProducts = await countProducts(availableOnly);
     }
-
-    const normalizedProducts = products.map(product => ({
-      ...product,
-      images: product.images ?? []  // reemplaza null por []
-    }));
 
 
     res.status(200).json({
       success: true,
-      message: normalizedProducts.length === 0 ? 'No products found' : 'Products retrieved successfully',
+      message: products.length === 0 ? 'No products found' : 'Products retrieved successfully',
       data: {
         total: totalProducts,
-        products: normalizedProducts
+        products: products
       }
     })
   } catch (error) {
+    console.log(error)
     next(error);
   }
 }
 
-export const getAllAvailableProducts = async (
+export const getAllProducts = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -170,10 +167,10 @@ export const getAllAvailableProducts = async (
 
 
     if (search) {
-      products = await filterProducts(search, limit, offset, availableOnly);
+      products = await filterProducts(search, limit, offset);
       totalProducts = await countFilteredProducts(search, availableOnly);
     } else {
-      products = await fetchAllProducts(limit, offset, availableOnly);
+      products = await fetchAvailableProducts(limit, offset);
       totalProducts = await countProducts(availableOnly);
     }
 
@@ -188,10 +185,44 @@ export const getAllAvailableProducts = async (
       }
     })
   } catch (error) {
+    console.log(error)
     next(error);
   }
 }
 
+
+
+export const getOneProductAdmin = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const productId = parseIdParam(req, res);
+    if (productId === null) return;
+
+    const product = await fetchOneProductByIdAdmin(productId);
+
+
+    if (!product) {
+      res.status(404).json({
+        success: false,
+        message: 'Product not found'
+      })
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Product found',
+      data: product
+    });
+
+  } catch (error) {
+    console.log(error);
+    next(error);
+  }
+}
 
 
 export const getOneProduct = async (
@@ -204,7 +235,7 @@ export const getOneProduct = async (
     if (productId === null) return;
 
     const product = await fetchOneProductById(productId);
-    
+
     console.log(product);
     if (!product) {
       res.status(404).json({
@@ -221,6 +252,7 @@ export const getOneProduct = async (
     });
 
   } catch (error) {
+    console.log(error);
     next(error);
   }
 }
@@ -237,7 +269,7 @@ export const updateProduct = async (
     if (productId === null) return;
 
     // Body (data) validation
-    const { success, data, error } = patchProductSchema.safeParse(req.body);
+    const { success, data: validatedProduct, error } = updateProductSchema.safeParse(req.body);
     if (!success) {
       res.status(400).json({
         success: false,
@@ -249,28 +281,22 @@ export const updateProduct = async (
 
 
     // Fetch Current Product on DB
-    const currentProduct = await fetchOneProductById(productId);
+    const currentProduct = await fetchOneProductByIdAdmin(productId);
 
 
-
-    // Normalizing current product
-    const normalizedCurrentProduct = {
-      ...currentProduct,
-      images: currentProduct.images ?? [],  // replace null fields on DB with []
-    };
 
     // Normalizing images due to append reasons, (if only has one img, its string, is not an array. Therefore its an error, prop images always has to be an array)
-    const normalizedDeletedImages = Array.isArray(data.deletedImages)
-      ? data.deletedImages
-      : data.deletedImages
-        ? [data.deletedImages]
+    const normalizedDeletedImages = Array.isArray(validatedProduct.deletedImages)
+      ? validatedProduct.deletedImages
+      : validatedProduct.deletedImages
+        ? [validatedProduct.deletedImages]
         : [];
 
 
     /* // Images to delete validation
     const sameImages = normalizedDeletedImages.length !== normalizedCurrentProduct.images.length && normalizedDeletedImages.every((deletedImage) => normalizedCurrentProduct.images.includes(deletedImage)); */
 
-    const hasImagesToDelete = data.deletedImages.length > 0
+    const hasImagesToDelete = normalizedDeletedImages.length > 0
 
     // Type for req.files 
     const files: Express.Multer.File[] = Array.isArray(req.files) ? req.files : [];
@@ -278,14 +304,14 @@ export const updateProduct = async (
 
     // Changes in product detection
     const hasChanges =
-      data.name !== normalizedCurrentProduct.name ||
-      data.description !== normalizedCurrentProduct.description ||
-      data.subCategoryId.toString() !== normalizedCurrentProduct.subCategoryId.toString() ||
-      Number(data.originalPrice).toFixed(2) !== Number(normalizedCurrentProduct.originalPrice).toFixed(2) ||
-      Number(data.discount) !== Number(normalizedCurrentProduct.discount) ||
-      data.brand !== normalizedCurrentProduct.brand ||
+      validatedProduct.name !== currentProduct.name ||
+      validatedProduct.description !== currentProduct.description ||
+      validatedProduct.subCategoryId.toString() !== currentProduct.subCategoryId.toString() ||
+      Number(validatedProduct.originalPrice).toFixed(2) !== Number(currentProduct.originalPrice).toFixed(2) ||
+      Number(validatedProduct.discount) !== Number(currentProduct.discount) ||
+      validatedProduct.brand !== currentProduct.brand ||
       hasImagesToDelete ||
-      data.state !== normalizedCurrentProduct.state ||
+      validatedProduct.state !== currentProduct.state ||
       files.length > 0;
 
 
@@ -294,7 +320,7 @@ export const updateProduct = async (
       res.status(200).json({
         success: true,
         message: "No changes detected",
-        data: data
+        data: validatedProduct
       })
       return;
     }
@@ -303,7 +329,7 @@ export const updateProduct = async (
     await client.query('BEGIN');
 
     // Update product on DB
-    const updatedProduct = await patchProductById(productId, data, client)
+    const updatedProduct = await updateProductById(productId, validatedProduct, client)
 
     // Response if update of product failed
     if (!updatedProduct) {
@@ -335,7 +361,7 @@ export const updateProduct = async (
     }
 
 
-    // Add new images if we have at leat one new image of type File
+    // Add new images if we have at least one new image of type File
     if (files.length > 0) {
       let newImages;
       try {
@@ -371,6 +397,7 @@ export const updateProduct = async (
           await insertProductImages(productId, imageUrl, client);
         }
       } catch (insertError) {
+        console.log(insertError);
         // Rollback if we couldn't insert urls images into the db
         await client.query('ROLLBACK');
 
@@ -395,6 +422,7 @@ export const updateProduct = async (
       data: updatedProduct
     });
   } catch (error) {
+    console.log(error);
     // Rollback in case happens any error
     await client.query('ROLLBACK');
     next(error)
