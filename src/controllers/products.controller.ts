@@ -6,6 +6,7 @@ import { deleteImageFromCloudinary, saveImageToCloudinary } from "../utils/cloud
 import { deleteImageByImageUrl, getAllImagesByProduct, insertProductImages } from "../services/image.service";
 import pool from "../utils/db";
 import { parseIdParam } from "../utils/parseIdParam";
+import { calculateDiscountedPrice } from "../utils/discountedPrice";
 
 
 
@@ -28,12 +29,14 @@ export const createProduct = async (
       return;
     }
 
+    const discountedPrice = calculateDiscountedPrice(validatedProduct.originalPrice, validatedProduct.discount);
+
 
     // begin transaction
     await client.query('BEGIN');
 
     //Insert product in DB
-    const productId = await insertProduct(validatedProduct, client);
+    const productId = await insertProduct(validatedProduct, discountedPrice, client);
     if (!productId) {
       res.status(500).json({
         success: false,

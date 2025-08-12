@@ -11,5 +11,5 @@ export const parseToFormattedDate = (dateString: string): string => {
   });
   
   // Remover "de" y reformatear
-  return formatted.replace(/ de /g, ' ').replace(/, /, ' - ');
+  return formatted.replace(/ de /g, ' ').replace(/, /, ', ');
 };

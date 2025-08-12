@@ -6,14 +6,14 @@ import { calculateDiscountedPrice } from "../utils/discountedPrice";
 
 
 // ADMIN USER
-export const insertProduct = async (body: CreateProductDTO, client: PoolClient): Promise<number> => {
+export const insertProduct = async (body: CreateProductDTO, discountedPrice: number, client: PoolClient): Promise<number> => {
   const { name, description, subCategoryId, originalPrice, discount, brand } = body;
   const result = await client.query(`
-      INSERT INTO products (name, description, subcategory_id, price, discount, brand) 
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO products (name, description, subcategory_id, original_price, discount, discounted_price, brand) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING 
       id
-    `, [name, description, subCategoryId, originalPrice, discount, brand])
+    `, [name, description, subCategoryId, originalPrice, discount, discountedPrice, brand])
   return result.rows[0].id;
 }
 
@@ -28,7 +28,8 @@ export const fetchAllProductsAdmin = async (limit: number, offset: number): Prom
         p.subcategory_id AS "subCategoryId",
         c.id AS "categoryId",
         p.state, 
-        p.price AS "originalPrice",
+        p.original_price AS "originalPrice",
+        p.discounted_price AS "discountedPrice",
         ARRAY_AGG(i.image_url) FILTER (WHERE i.image_url IS NOT NULL) AS "images",
         c.name AS "categoryName",
         s.name AS "subCategoryName",
@@ -40,7 +41,7 @@ export const fetchAllProductsAdmin = async (limit: number, offset: number): Prom
       JOIN categories c ON c.id = s.category_id
       GROUP BY 
         p.id, p.name, p.description, p.discount, p.brand,
-        p.subcategory_id, p.state, p.price, c.id, c.name, s.name, p.created_at, p.updated_at
+        p.subcategory_id, p.state, p.original_price, c.id, c.name, s.name, p.created_at, p.updated_at
       ORDER BY 
         p.updated_at DESC
       LIMIT $1
@@ -53,7 +54,6 @@ export const fetchAllProductsAdmin = async (limit: number, offset: number): Prom
   const normalizedProducts = products.map(product => ({
     ...product,
     images: product.images ?? [],  // reemplaza null por []
-    discountedPrice: calculateDiscountedPrice(product.originalPrice, product.discount),
     createdAt: parseToFormattedDate(product.createdAt), // Parse to "day moth year format"
     updatedAt: parseToFormattedDate(product.updatedAt), // Parse to "day moth year format"
   }));
@@ -75,10 +75,12 @@ export const filterProductsAdmin = async (search: string = '', limit: number, of
       p.subcategory_id AS "subCategoryId",
       c.id AS "categoryId",
       p.state, 
-      p.price AS "originalPrice",
+      p.original_price AS "originalPrice",
       ARRAY_AGG(i.image_url) FILTER (WHERE i.image_url IS NOT NULL) AS "images",
       c.name AS "categoryName",
-      s.name AS "subCategoryName"
+      s.name AS "subCategoryName",
+      p.created_at AS "createdAt",
+      p.updated_at AS "updatedAt"
     FROM products p
     LEFT JOIN product_images i ON p.id = i.product_id
     JOIN subcategories s ON s.id = p.subcategory_id 
@@ -86,7 +88,7 @@ export const filterProductsAdmin = async (search: string = '', limit: number, of
     WHERE (LOWER(p.name) LIKE $1 OR LOWER(p.description) LIKE $1)
     GROUP BY 
       p.id, p.name, p.description, p.discount, p.brand,
-      p.subcategory_id, p.state, p.price, c.id, c.name, s.name, p.created_at, p.updated_at
+      p.subcategory_id, p.state, p.original_price, c.id, c.name, s.name, p.created_at, p.updated_at
     ORDER BY 
       p.updated_at DESC
       LIMIT $2 
@@ -117,7 +119,7 @@ export const fetchOneProductByIdAdmin = async (productId: number): Promise<Produ
       p.subcategory_id AS "subCategoryId",
       c.id AS "categoryId",
       p.state,
-      p.price as "originalPrice",
+      p.original_price as "originalPrice",
       ARRAY_AGG(i.image_url) FILTER (WHERE i.image_url IS NOT NULL) AS "images"
     FROM products p
     LEFT JOIN product_images i ON p.id = i.product_id
@@ -133,7 +135,7 @@ export const fetchOneProductByIdAdmin = async (productId: number): Promise<Produ
       p.subcategory_id,
       c.id,
       p.state,
-      p.price
+      p.original_price
     `, [productId]);
 
   const product = result.rows[0];
@@ -155,7 +157,7 @@ export const updateProductById = async (productId: number, body: UpdateProductDT
     SET name = $1, 
     description = $2, 
     subcategory_id = $3, 
-    price = $4, 
+    original_price = $4, 
     discount = $5, 
     brand = $6,
     state = $7
@@ -163,7 +165,7 @@ export const updateProductById = async (productId: number, body: UpdateProductDT
     RETURNING name,
     description,
     subcategory_id as "subCategoryId",
-    price,
+    original_price,
     discount,
     brand,
     state
@@ -190,7 +192,8 @@ export const fetchAvailableProducts = async (limit: number, offset: number): Pro
         p.name,  
         p.discount, 
         p.brand,
-        p.price AS "originalPrice",
+        p.original_price AS "originalPrice",
+        p.discounted_price AS "discountedPrice",
         i.image_url AS "image",
         p.updated_at AS "updatedAt"
       FROM products p
@@ -212,7 +215,6 @@ export const fetchAvailableProducts = async (limit: number, offset: number): Pro
   const normalizedProducts = products.map(product => ({
     ...product,
     image: product.image ?? '',  // reemplaza null por ''  (solo es una imagen)
-    discountedPrice: calculateDiscountedPrice(product.originalPrice, product.discount),
     /* createdAt: parseToFormmatedDate(product.createdAt), // Parse to "day moth year format"
     updatedAt: parseToFormmatedDate(product.updatedAt), // Parse to "day moth year format" */
   }));
@@ -230,7 +232,7 @@ export const filterProducts = async (search: string = '', limit: number, offset:
       p.name,  
       p.discount, 
       p.brand,
-      p.price AS "originalPrice",
+      p.original_price AS "originalPrice",
       i.image_url AS "image",
       p.updated_at AS "updatedAt"
     FROM products p
@@ -261,7 +263,7 @@ export const fetchOneProductById = async (productId: number): Promise<ProductDet
       p.description, 
       p.discount, 
       p.brand,
-      p.price as "originalPrice",
+      p.original_price as "originalPrice",
       p.created_at AS "createdAt",
       ARRAY_AGG(i.image_url) FILTER (WHERE i.image_url IS NOT NULL) AS "images"
     FROM products p
@@ -271,7 +273,7 @@ export const fetchOneProductById = async (productId: number): Promise<ProductDet
     WHERE p.id = $1
     GROUP BY 
         p.id, p.name, p.description, p.discount, p.brand,
-        p.subcategory_id, p.price, c.id, p.created_at
+        p.subcategory_id, p.original_price, c.id, p.created_at
     `, [productId]);
 
   const product = result.rows[0];

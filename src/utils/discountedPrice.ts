@@ -1,5 +1,5 @@
-export const calculateDiscountedPrice = (originalPrice: string, discount: number): string => {
-  const discountAmount = Number(originalPrice) * (discount / 100);
-  const finalPrice = Number(originalPrice) - discountAmount;
-  return finalPrice.toFixed(2);
+export const calculateDiscountedPrice = (originalPrice: number, discount: number): number => {
+  const discountAmount = originalPrice * (discount / 100);
+  const finalPrice = originalPrice - discountAmount;
+  return Number(finalPrice.toFixed(2));
 }
