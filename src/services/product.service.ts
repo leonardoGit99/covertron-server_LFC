@@ -95,7 +95,7 @@ export const filterProductsAdmin = async (search: string = '', limit: number, of
       OFFSET $3
     `, [searchTerm, limit, offset])
 
-    const products = result.rows;
+  const products = result.rows;
   const normalizedProducts = products.map(product => ({
     ...product,
     images: product.images ?? [],  // reemplaza null por ''  (solo es una imagen)
@@ -194,10 +194,13 @@ export const fetchAvailableProducts = async (limit: number, offset: number): Pro
         p.brand,
         p.original_price AS "originalPrice",
         p.discounted_price AS "discountedPrice",
+        c.name AS "categoryName",
         i.image_url AS "image",
         p.updated_at AS "updatedAt"
       FROM products p
       LEFT JOIN product_images i ON p.id = i.product_id
+      JOIN subcategories s ON s.id = p.subcategory_id
+      JOIN categories c ON c.id = s.category_id
       WHERE p.state = 'available' AND i.id = (
         SELECT MIN(id)
         FROM product_images
@@ -219,6 +222,7 @@ export const fetchAvailableProducts = async (limit: number, offset: number): Pro
     updatedAt: parseToFormmatedDate(product.updatedAt), // Parse to "day moth year format" */
   }));
 
+  console.log(normalizedProducts)
   return normalizedProducts;
 }
 
@@ -233,10 +237,14 @@ export const filterProducts = async (search: string = '', limit: number, offset:
       p.discount, 
       p.brand,
       p.original_price AS "originalPrice",
+      p.discounted_price AS "discountedPrice",
+      c.name AS "categoryName",
       i.image_url AS "image",
       p.updated_at AS "updatedAt"
     FROM products p
     LEFT JOIN product_images i ON p.id = i.product_id
+    JOIN subcategories s ON s.id = p.subcategory_id
+    JOIN categories c ON c.id = s.category_id
     WHERE p.state = 'available' 
     AND (LOWER(p.name) LIKE $1 OR LOWER(p.description) LIKE $1) 
     AND i.id = (
@@ -250,6 +258,7 @@ export const filterProducts = async (search: string = '', limit: number, offset:
     OFFSET $3
     `, [searchTerm, limit, offset])
 
+  console.log(result.rows)
   return result.rows;
 }
 
@@ -290,7 +299,39 @@ export const fetchOneProductById = async (productId: number): Promise<ProductDet
 }
 
 
+export const filterProductsByCategory = async (categoryId: number, limit: number, offset: number): Promise<Product[]> => {
+  const result = await pool.query(`
+    SELECT p.id,
+    p.name,
+    p.original_price AS "originalPrice",
+    p.discount,
+    p.discounted_price AS "discountedPrice",
+    c.name AS "categoryName",
+    i.image_url AS "image"
+    FROM products p
+    LEFT JOIN product_images i ON p.id = i.product_id
+    JOIN subcategories s ON s.id = p.subcategory_id
+    JOIN categories c ON c.id = s.category_id
+    WHERE p.state = 'available' 
+    AND c.id = $1
+    AND i.id = (
+        SELECT MIN(id)
+        FROM product_images
+        WHERE product_id = p.id
+      )
+    ORDER BY 
+      p.updated_at DESC
+    LIMIT $2 
+    OFFSET $3
+    `, [categoryId, limit, offset])
 
+  const products = result.rows;
+  const normalizedProducts = products.map(product => ({
+    ...product,
+    image: product.image ?? '',  // reemplaza null por ''  (solo es una imagen)
+  }));
+  return normalizedProducts;
+}
 
 
 

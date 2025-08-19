@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express"
 import { createProductSchema, updateProductSchema } from "../schemas/product.schema"
-import z from "zod";
-import { countFilteredProducts, countProducts, deleteProductById, fetchAllProductsAdmin, fetchAvailableProducts, fetchOneProductById, fetchOneProductByIdAdmin, filterProducts, filterProductsAdmin, insertProduct, updateProductById } from "../services/product.service";
+import z, { success } from "zod";
+import { countFilteredProducts, countProducts, deleteProductById, fetchAllProductsAdmin, fetchAvailableProducts, fetchOneProductById, fetchOneProductByIdAdmin, filterProducts, filterProductsAdmin, filterProductsByCategory, insertProduct, updateProductById } from "../services/product.service";
 import { deleteImageFromCloudinary, saveImageToCloudinary } from "../utils/cloudinary";
 import { deleteImageByImageUrl, getAllImagesByProduct, insertProductImages } from "../services/image.service";
 import pool from "../utils/db";
@@ -162,21 +162,26 @@ export const getAllProducts = async (
   try {
     let products;
     let totalProducts;
+    
     const search = req.query.search?.toString().toLowerCase();
+    const categoryId = req.query.category ? parseInt(req.query.category as string) : null; // if exists category id
     const page = parseInt(req.query.page as string) || 1;     // página actual
     const limit = parseInt(req.query.limit as string) || 10;
     const offset = (page - 1) * limit; //  calcula el desplazamiento real
     const availableOnly = true;
 
-
-    if (search) {
+  
+    if (categoryId) {
+      products = await filterProductsByCategory(categoryId, limit, offset);
+      totalProducts = products.length
+    }
+    else if (search) {
       products = await filterProducts(search, limit, offset);
       totalProducts = await countFilteredProducts(search, availableOnly);
     } else {
       products = await fetchAvailableProducts(limit, offset);
       totalProducts = await countProducts(availableOnly);
     }
-
 
 
     res.status(200).json({

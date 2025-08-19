@@ -23,7 +23,7 @@ export type ProductDetailAdminDTO = Omit<Product, 'categoryName' | 'subCategoryN
 
 
 // NORMAL USER
-export type ProductSummaryDTO = Omit<Product, 'description' | 'categoryId' | 'subCategoryId' | 'state' | 'categoryName' | 'subCategoryName' | 'images' | 'createdAt' | 'updatedAt'> & {
+export type ProductSummaryDTO = Omit<Product, 'description' | 'categoryId' | 'subCategoryId' | 'state' | 'subCategoryName' | 'images' | 'createdAt' | 'updatedAt'> & {
   image: string
 }
 
