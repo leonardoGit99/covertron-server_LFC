@@ -19,6 +19,9 @@ export const createProduct = async (
   try {
     // Validation body (data)
     const { success, data: validatedProduct, error } = createProductSchema.safeParse(req.body);
+    console.log(req.body);
+    console.log(success)
+    console.log(error)
 
     if (!success) {
       res.status(400).json({
@@ -29,7 +32,10 @@ export const createProduct = async (
       return;
     }
 
-    const discountedPrice = calculateDiscountedPrice(validatedProduct.originalPrice, validatedProduct.discount);
+    const discountedPrice = calculateDiscountedPrice(
+      validatedProduct.originalPrice,
+      Number(validatedProduct.discount)
+    );
 
 
     // begin transaction
@@ -162,7 +168,7 @@ export const getAllProducts = async (
   try {
     let products;
     let totalProducts;
-    
+
     const search = req.query.search?.toString().toLowerCase();
     const categoryId = req.query.category ? parseInt(req.query.category as string) : null; // if exists category id
     const page = parseInt(req.query.page as string) || 1;     // página actual
@@ -170,7 +176,7 @@ export const getAllProducts = async (
     const offset = (page - 1) * limit; //  calcula el desplazamiento real
     const availableOnly = true;
 
-  
+
     if (categoryId) {
       products = await filterProductsByCategory(categoryId, limit, offset);
       totalProducts = products.length

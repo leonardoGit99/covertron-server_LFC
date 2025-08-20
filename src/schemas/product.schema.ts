@@ -1,12 +1,45 @@
 import z from 'zod';
 
 export const createProductSchema = z.object({
-  name: z.string().min(1, "El nombre es obligatorio"),
-  description: z.string().min(10, "La descripción debe tener al menos 10 caracteres"),
-  subCategoryId: z.coerce.number().int().min(1, "Selecciona una sub-categoría válida"),
-  originalPrice: z.coerce.number().min(0, "El precio debe ser un valor numérico"),
-  brand: z.string().min(2, "La marca debe contener más de 2 caracteres"),
-  discount: z.coerce.number().min(0, "El descuento debe ser un valor numérico")
+  name: z.coerce
+    .string()
+    .trim()
+    .min(1, "El nombre es obligatorio")
+    .max(150, "El nombre no puede tener más de 150 caracteres"),
+  description: z.coerce
+    .string()
+    .trim()
+    .max(1000, "La descripción no puede tener más de 1000 caracteres")
+    .optional(),
+  subCategoryId: z.coerce
+    .number({
+      message: "Selecciona una sub categoría"
+    })
+    .int()
+    .positive({
+      message: "Selecciona una sub categoría"
+    })
+    .refine(
+      (val) => val !== null && !isNaN(val),
+      { message: "Selecciona una sub categoría" }
+    ),
+  originalPrice: z.coerce
+    .number({
+      message: "El precio es obligatorio"
+    })
+    .int()
+    .positive({
+      message: "El precio es obligatorio"
+    })
+    .min(0, "El precio debe ser mayor o igual a 0")
+    .max(10000, "El precio no puede ser más de 10000 Bs.")
+    .multipleOf(0.01),
+  brand: z.coerce
+    .string()
+    .trim()
+    .min(1, "La marca es obligatoria")
+    .max(75, "La marca no puede tener más de 75 caracteres"),
+  discount: z.coerce.string().default("0").optional()
 });
 
 
