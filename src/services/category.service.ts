@@ -60,3 +60,15 @@ export const deleteCategoryById = async (id: number): Promise<boolean> => {
 
   return result.rowCount !== null && result.rowCount > 0;
 }
+
+
+
+export const countCategories = async (): Promise<number> => {
+  const query = (`
+    SELECT COUNT(*) AS "totalCategories"
+    FROM categories
+    `)
+
+  const result = await pool.query(query);
+  return parseInt(result.rows[0].totalCategories, 10);
+}

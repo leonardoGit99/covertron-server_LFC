@@ -336,7 +336,7 @@ export const filterProductsByCategory = async (categoryId: number, limit: number
 
 
 // BOTH USERS
-export const countProducts = async (availableOnly: boolean): Promise<number> => {
+export const countProducts = async (availableOnly?: boolean): Promise<number> => {
   let whereClause = '';
 
   if (availableOnly) {

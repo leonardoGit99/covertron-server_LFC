@@ -76,6 +76,17 @@ export const deleteSubCategoryById = async (subCategoryId: number): Promise<bool
     DELETE FROM subcategories 
     WHERE id=$1
     `, [subCategoryId])
-    
+
   return result.rowCount !== null && result.rowCount > 0;
+}
+
+
+export const countSubCategories = async (): Promise<number> => {
+  const query = (`
+    SELECT COUNT(*) AS "totalSubCategories"
+    FROM subcategories
+    `)
+
+  const result = await pool.query(query);
+  return parseInt(result.rows[0].totalSubCategories, 10);
 }
