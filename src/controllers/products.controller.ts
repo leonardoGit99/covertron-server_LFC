@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express"
 import { createProductSchema, updateProductSchema } from "../schemas/product.schema"
 import z, { success } from "zod";
-import { countFilteredProducts, countProducts, deleteProductById, fetchAllProductsAdmin, fetchAvailableProducts, fetchOneProductById, fetchOneProductByIdAdmin, filterProducts, filterProductsAdmin, filterProductsByCategory, insertProduct, updateProductById } from "../services/product.service";
+import { countFilteredProducts, countProducts, deleteProductById, fetchAllProductsAdmin, fetchAvailableProducts, fetchOneProductById, fetchOneProductByIdAdmin, filterProducts, filterProductsAdmin, filterProductsByCategory, insertProduct, updateProductById, validateDuplicateProduct } from "../services/product.service";
 import { deleteImageFromCloudinary, saveImageToCloudinary } from "../utils/cloudinary";
 import { deleteImageByImageUrl, getAllImagesByProduct, insertProductImages } from "../services/image.service";
 import pool from "../utils/db";
@@ -19,15 +19,22 @@ export const createProduct = async (
   try {
     // Validation body (data)
     const { success, data: validatedProduct, error } = createProductSchema.safeParse(req.body);
-    console.log(req.body);
-    console.log(success)
-    console.log(error)
 
     if (!success) {
       res.status(400).json({
         success: false,
         message: 'Validation error',
         errors: error ? z.treeifyError(error) : {}
+      })
+      return;
+    }
+
+    const duplicatedProductName = await validateDuplicateProduct(validatedProduct.name);
+
+    if (duplicatedProductName) {
+      res.status(400).json({
+        success: false,
+        message: 'Product name already exists'
       })
       return;
     }

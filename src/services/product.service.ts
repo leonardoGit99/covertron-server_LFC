@@ -184,6 +184,17 @@ export const deleteProductById = async (productId: number, client: PoolClient): 
   return result.rowCount !== null && result.rowCount > 0;
 }
 
+export const validateDuplicateProduct = async (productName: string): Promise<boolean> => {
+  const result = await pool.query(`
+    SELECT COUNT(*) 
+    FROM products
+    WHERE name = $1
+    `, [productName]);
+
+  const count = parseInt(result.rows[0].count, 10);
+
+  return count > 0;
+}
 
 // NORMAL USER
 export const fetchAvailableProducts = async (limit: number, offset: number): Promise<ProductSummaryDTO[]> => {

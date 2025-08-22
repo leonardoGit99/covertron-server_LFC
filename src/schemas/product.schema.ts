@@ -39,7 +39,7 @@ export const createProductSchema = z.object({
     .trim()
     .min(1, "La marca es obligatoria")
     .max(75, "La marca no puede tener más de 75 caracteres"),
-  discount: z.coerce.string().default("0").optional()
+  discount: z.coerce.number().default(0).optional()
 });
 
 
