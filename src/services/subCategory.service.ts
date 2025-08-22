@@ -35,7 +35,7 @@ export const fetchAllSubCategories = async (): Promise<SubCategories> => {
     c.name AS "categoryName" 
     FROM subcategories s 
     JOIN categories c ON c.id = s.category_id
-    ORDER BY c.name ASC`);
+    ORDER BY s.created_at DESC`);
 
   return result.rows;
 }
@@ -89,4 +89,16 @@ export const countSubCategories = async (): Promise<number> => {
 
   const result = await pool.query(query);
   return parseInt(result.rows[0].totalSubCategories, 10);
+}
+
+export const validateDuplicateSubCategory = async (subCategoryName: string): Promise<boolean> => {
+  const result = await pool.query(`
+    SELECT COUNT(*) 
+    FROM subcategories
+    WHERE name = $1
+    `, [subCategoryName]);
+
+  const count = parseInt(result.rows[0].count, 10);
+
+  return count > 0;
 }

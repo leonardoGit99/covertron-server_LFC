@@ -20,7 +20,7 @@ export const fetchAllCategories = async (): Promise<Categories> => {
       name, 
       description  
     FROM categories 
-    ORDER BY name ASC
+    ORDER BY created_at DESC
     `);
 
   return result.rows
@@ -71,4 +71,17 @@ export const countCategories = async (): Promise<number> => {
 
   const result = await pool.query(query);
   return parseInt(result.rows[0].totalCategories, 10);
+}
+
+
+export const validateDuplicateCategory = async (categoryName: string): Promise<boolean> => {
+  const result = await pool.query(`
+    SELECT COUNT(*) 
+    FROM categories
+    WHERE name = $1
+    `, [categoryName]);
+
+  const count = parseInt(result.rows[0].count, 10);
+
+  return count > 0;
 }

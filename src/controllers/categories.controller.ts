@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import pool from '../utils/db';
 import { createCategorySchema, updateCategorySchema } from '../schemas/category.schema';
-import { deleteCategoryById, insertCategory, fetchAllCategories, updateCategoryById, fetchCategoryById } from '../services/category.service';
+import { deleteCategoryById, insertCategory, fetchAllCategories, updateCategoryById, fetchCategoryById, validateDuplicateCategory } from '../services/category.service';
 import { z } from 'zod';
 import { parseIdParam } from '../utils/parseIdParam';
 
@@ -14,10 +14,21 @@ export const createCategory = async (
     // Body Validation
     const { success, data, error } = createCategorySchema.safeParse(req.body);
     if (!success) {
+      console.log(error);
       res.status(400).json({
         success: false,
         message: 'Validation error',
         errors: error ? z.treeifyError(error) : {}
+      })
+      return;
+    }
+
+    const duplicatedCategoryName = await validateDuplicateCategory(data.name);
+
+    if (duplicatedCategoryName) {
+      res.status(400).json({
+        success: false,
+        message: 'Category name already exists'
       })
       return;
     }
@@ -105,6 +116,17 @@ export const updateCategory = async (
       return;
     }
 
+    if (validatedCategory.name !== undefined) {
+      const duplicatedCategoryName = await validateDuplicateCategory(validatedCategory.name);
+
+      if (duplicatedCategoryName) {
+        res.status(400).json({
+          success: false,
+          message: 'Category name already exists'
+        })
+        return;
+      }
+    }
     // Getting Category store in db (previous category)
     const currentCategory = await fetchCategoryById(categoryId);
 

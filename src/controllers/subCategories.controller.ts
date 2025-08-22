@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import pool from '../utils/db';
 import { createSubCategorySchema, updateSubCategorySchema } from '../schemas/subCategory.schema';
 import z from 'zod';
-import { deleteSubCategoryById, fetchAllSubCategories, getAllSubCategoriesByCategory, getOneSubCategoryById, insertSubCategory, updateSubCategoryById } from '../services/subCategory.service';
+import { deleteSubCategoryById, fetchAllSubCategories, getAllSubCategoriesByCategory, getOneSubCategoryById, insertSubCategory, updateSubCategoryById, validateDuplicateSubCategory } from '../services/subCategory.service';
 import { parseIdParam } from '../utils/parseIdParam';
 
 
@@ -23,6 +23,16 @@ export const createSubCategory = async (
         success: false,
         message: 'Validation error',
         errors: error ? z.treeifyError(error) : {}
+      })
+      return;
+    }
+
+    const duplicatedSubCategoryName = await validateDuplicateSubCategory(validatedSubCategory.name);
+
+    if (duplicatedSubCategoryName) {
+      res.status(400).json({
+        success: false,
+        message: 'Sub Category name already exists'
       })
       return;
     }
@@ -142,6 +152,18 @@ export const updateSubCategory = async (req: Request, res: Response, next: NextF
         errors: z.treeifyError(error)
       })
       return;
+    }
+
+    if (validatedSubCategory.name !== undefined) {
+      const duplicatedSubCategoryName = await validateDuplicateSubCategory(validatedSubCategory.name);
+
+      if (duplicatedSubCategoryName) {
+        res.status(400).json({
+          success: false,
+          message: 'Sub Category name already exists'
+        })
+        return;
+      }
     }
 
     // Getting subcategory in db (previous subcategory)

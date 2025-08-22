@@ -300,6 +300,16 @@ export const updateProduct = async (
       return;
     }
 
+    
+    const duplicatedProductName = await validateDuplicateProduct(validatedProduct.name);
+
+    if (duplicatedProductName) {
+      res.status(400).json({
+        success: false,
+        message: 'Product name already exists'
+      })
+      return;
+    }
 
     // Fetch Current Product on DB
     const currentProduct = await fetchOneProductByIdAdmin(productId);
