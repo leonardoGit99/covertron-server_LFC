@@ -300,21 +300,24 @@ export const updateProduct = async (
       return;
     }
 
-    
-    const duplicatedProductName = await validateDuplicateProduct(validatedProduct.name);
 
-    if (duplicatedProductName) {
-      res.status(400).json({
-        success: false,
-        message: 'Product name already exists'
-      })
-      return;
-    }
+
 
     // Fetch Current Product on DB
     const currentProduct = await fetchOneProductByIdAdmin(productId);
 
+    // We validate duplicate name only if the name was changed, we avoid that the current product will be considered as duplicate of itself
+    if (currentProduct.name !== validatedProduct.name) {
+      const duplicatedProductName = await validateDuplicateProduct(validatedProduct.name);
 
+      if (duplicatedProductName) {
+        res.status(400).json({
+          success: false,
+          message: 'Product name already exists'
+        })
+        return;
+      }
+    }
 
     // Normalizing images due to append reasons, (if only has one img, its string, is not an array. Therefore its an error, prop images always has to be an array)
     const normalizedDeletedImages = Array.isArray(validatedProduct.deletedImages)

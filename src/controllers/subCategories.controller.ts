@@ -154,17 +154,7 @@ export const updateSubCategory = async (req: Request, res: Response, next: NextF
       return;
     }
 
-    if (validatedSubCategory.name !== undefined) {
-      const duplicatedSubCategoryName = await validateDuplicateSubCategory(validatedSubCategory.name);
 
-      if (duplicatedSubCategoryName) {
-        res.status(400).json({
-          success: false,
-          message: 'Sub Category name already exists'
-        })
-        return;
-      }
-    }
 
     // Getting subcategory in db (previous subcategory)
     const currentSubCategory = await getOneSubCategoryById(Number(subCategoryId));
@@ -174,6 +164,20 @@ export const updateSubCategory = async (req: Request, res: Response, next: NextF
         message: 'Sub-category not found'
       })
       return;
+    }
+
+    if (currentSubCategory.name !== validatedSubCategory.name) {
+      if (validatedSubCategory.name !== undefined) {
+        const duplicatedSubCategoryName = await validateDuplicateSubCategory(validatedSubCategory.name);
+
+        if (duplicatedSubCategoryName) {
+          res.status(400).json({
+            success: false,
+            message: 'Sub Category name already exists'
+          })
+          return;
+        }
+      }
     }
 
 

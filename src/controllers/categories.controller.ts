@@ -116,17 +116,8 @@ export const updateCategory = async (
       return;
     }
 
-    if (validatedCategory.name !== undefined) {
-      const duplicatedCategoryName = await validateDuplicateCategory(validatedCategory.name);
 
-      if (duplicatedCategoryName) {
-        res.status(400).json({
-          success: false,
-          message: 'Category name already exists'
-        })
-        return;
-      }
-    }
+
     // Getting Category store in db (previous category)
     const currentCategory = await fetchCategoryById(categoryId);
 
@@ -137,6 +128,23 @@ export const updateCategory = async (
       });
       return;
     }
+
+
+     // We validate duplicate name only if the name was changed, we avoid that the current product will be considered as duplicate of itself
+    if (validatedCategory.name !== currentCategory.name) {
+      if (validatedCategory.name !== undefined) {
+        const duplicatedCategoryName = await validateDuplicateCategory(validatedCategory.name);
+
+        if (duplicatedCategoryName) {
+          res.status(400).json({
+            success: false,
+            message: 'Category name already exists'
+          })
+          return;
+        }
+      }
+    }
+
     // Validating if it doesn't have changes
     if (currentCategory.name === validatedCategory.name && currentCategory.description === validatedCategory.description) {
       res.status(200).json({
