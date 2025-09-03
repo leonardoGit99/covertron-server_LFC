@@ -1,11 +1,9 @@
 import { Router } from "express";
-import { getDashboardData } from "../controllers/dashboard.controller";
+import { whoAmI } from "../controllers/user.controller";
 import { requireAuth } from "../middlewares/requireAuth";
-
 
 const router = Router();
 
-router.get('/dashboard', requireAuth, getDashboardData);
-
+router.get('/me', requireAuth, whoAmI)
 
 export default router;

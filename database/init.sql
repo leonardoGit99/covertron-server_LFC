@@ -1,3 +1,19 @@
+CREATE TABLE roles (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(50) NOT NULL UNIQUE,
+  description VARCHAR(200) DEFAULT 'No role description'
+);
+
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  username VARCHAR(50) NOT NULL UNIQUE,
+  email VARCHAR(100) NOT NULL UNIQUE,
+  password VARCHAR(200) NOT NULL,
+  role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE RESTRICT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE categories (
   id SERIAL PRIMARY KEY,
   name VARCHAR(100) NOT NULL UNIQUE,
@@ -43,6 +59,13 @@ BEGIN
    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+
+-- Trigger for users table
+CREATE TRIGGER update_users_updated_at
+BEFORE UPDATE ON users 
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
 
 -- Trigger for products table
 CREATE TRIGGER update_products_updated_at

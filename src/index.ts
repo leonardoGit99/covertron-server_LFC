@@ -5,12 +5,12 @@ import cors from 'cors';
 import { config } from 'dotenv';
 config();
 import routes from './routes';
+import cookieParser from 'cookie-parser';
 
 
 const app = express();
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://pern-stack-by-lfc.vercel.app',
 ];
 
 app.use(cors({
@@ -27,6 +27,8 @@ app.use(cors({
 app.use(morgan('dev'));
 
 app.use(express.json());
+
+app.use(cookieParser()); // To read cookies in protected routes
 
 app.use('/api', routes);
 
