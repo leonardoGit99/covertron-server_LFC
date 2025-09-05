@@ -15,6 +15,7 @@ export const login = async (
     // Body Validation
     const { success, data, error } = loginSchema.safeParse(req.body);
 
+    console.log(req.body)
     // If validation fails
     if (!success) {
       console.log(error);

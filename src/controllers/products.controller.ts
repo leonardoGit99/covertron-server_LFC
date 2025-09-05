@@ -179,7 +179,7 @@ export const getAllProducts = async (
     const search = req.query.search?.toString().toLowerCase();
     const categoryId = req.query.category ? parseInt(req.query.category as string) : null; // if exists category id
     const page = parseInt(req.query.page as string) || 1;     // página actual
-    const limit = parseInt(req.query.limit as string) || 10;
+    const limit = parseInt(req.query.limit as string) || 12;
     const offset = (page - 1) * limit; //  calcula el desplazamiento real
     const availableOnly = true;
 
