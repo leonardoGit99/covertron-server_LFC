@@ -15,6 +15,9 @@ export const login = async (
     // Body Validation
     const { success, data, error } = loginSchema.safeParse(req.body);
 
+    // Detect environment
+    const isProd = process.env.NODE_ENV === "production";
+
     console.log(req.body)
     // If validation fails
     if (!success) {
@@ -52,7 +55,7 @@ export const login = async (
 
     // Generate JWT
     const token = jwt.sign(
-      { uid: user.id, name:user.name, email: user.email },
+      { uid: user.id, name: user.name, email: user.email },
       JWT_SECRET,
       { expiresIn: '1h' }
     );
@@ -60,8 +63,8 @@ export const login = async (
     // Set cookie
     res.cookie("token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'none'/* 'strict' */,
+      secure: isProd, // solo true en producción
+      sameSite: isProd ? "none" : "lax", // "none" en prod (dominios distintos), "lax" en local
       maxAge: 60 * 60 * 1000, // 1 hour
       path: '/'
     });
