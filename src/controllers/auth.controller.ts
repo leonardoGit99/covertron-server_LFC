@@ -16,7 +16,7 @@ export const login = async (
     const { success, data, error } = loginSchema.safeParse(req.body);
 
     // Detect environment
-    const isProd = process.env.NODE_ENV === "production";
+    // const isProd = process.env.NODE_ENV === "production";
 
     console.log(req.body)
     // If validation fails
@@ -63,8 +63,8 @@ export const login = async (
     // Set cookie
     res.cookie("token", token, {
       httpOnly: true,
-      secure: isProd, // solo true en producción
-      sameSite: isProd ? "none" : "lax", // "none" en prod (dominios distintos), "lax" en local
+      secure: process.env.NODE_ENV === "production", // solo true en producción
+      sameSite: "lax", // "none" en prod (dominios distintos), "lax" en local
       maxAge: 60 * 60 * 1000, // 1 hour
       path: '/'
     });
